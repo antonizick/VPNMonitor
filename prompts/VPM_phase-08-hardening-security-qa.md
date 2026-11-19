@@ -48,4 +48,3 @@ New fault-injection and threat-model tests; full suite green; coverage report re
 - Control socket facts for the threat model: 0700 dir / 0600 socket, `SO_PEERCRED`, 4096-byte lines, 0.5 s client timeout (a slow same-uid client can block the main loop for that long; documented, not fixed).
 - The overlay's first map takes 150 to 200 ms on the main loop (ADR-0017), so a bar appears about that long after focus; measure it with the rest.
 - The installed symlink points into the repository; after the Phase 07 merge it points at `/home/nick/Work/VPNMonitor/scripts/vpn-monitor`.
-
