@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Literal, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, runtime_checkable
 
 # ---------------------------------------------------------------------------------------------
 # Focus
@@ -104,6 +104,24 @@ class VpnReading:
     """Human-readable why, for the log (spec R11). Never contains window titles."""
     timestamp: float
     """Monotonic seconds when the reading was taken (injected clock, never read in the engine)."""
+
+
+def reading_to_dict(reading: VpnReading) -> dict[str, Any]:
+    """JSON-friendly form of a reading."""
+    return {
+        "state": reading.state.value,
+        "reason": reading.reason,
+        "routes": [
+            {
+                "family": r.family,
+                "destination": r.destination,
+                "interface": r.egress_interface,
+                "kind": r.kind.value,
+                "vpn": r.is_vpn,
+            }
+            for r in reading.routes
+        ],
+    }
 
 
 # ---------------------------------------------------------------------------------------------

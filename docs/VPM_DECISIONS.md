@@ -12,7 +12,7 @@ Lightweight ADRs. Append new decisions at the bottom, and never rewrite history:
 | ADR-0006 | 2026-11-18 21:53 CST | Python on the system interpreter + PyGObject/gtk4-layer-shell; uv for dev tools | Accepted (2026-11-18 22:19 CST) | 02 |
 | ADR-0007 | 2026-11-18 21:53 CST | Event-driven VPN detection with a periodic re-check only while a browser is focused; event source `ip monitor route rule link` | Accepted (2026-11-18 22:55 CST) | 04 |
 | ADR-0008 | 2026-11-18 21:53 CST | MIT licence; private GitHub repo; going public is the owner's call | Accepted | 00 |
-| ADR-0009 | 2026-11-18 21:53 CST | Pause keybinding SUPER+ALT+SHIFT+V (SUPER+ALT+V is taken) | Proposed | 07 |
+| ADR-0009 | 2026-11-18 21:53 CST | Pause keybinding SUPER+ALT+SHIFT+V (SUPER+ALT+V is taken) | Accepted (2026-11-19 09:43 CST) | 07 |
 | ADR-0010 | 2026-11-18 21:53 CST | Privacy: never read/log window titles; no external network calls | Accepted | 00 |
 | ADR-0011 | 2026-11-18 22:19 CST | Sources and sinks use a callback-style Protocol (`start(callback)` / `stop()`), not async iterators | Accepted | 02 |
 | ADR-0012 | 2026-11-18 22:19 CST | Single GLib main loop on the main thread; all callbacks run on it; no threads in the core | Accepted | 02 |
@@ -21,6 +21,7 @@ Lightweight ADRs. Append new decisions at the bottom, and never rewrite history:
 | ADR-0015 | 2026-11-18 22:55 CST | Classify interfaces by kernel link kind (`wireguard`/`tun` = VPN, `dummy` = blocked) plus name globs, not via `nmcli` | Accepted | 04 |
 | ADR-0016 | 2026-11-19 08:37 CST | Focus watcher asks `j/activewindow` once per event batch instead of keeping an address → class cache; titles never leave the parser | Accepted | 05 |
 | ADR-0017 | 2026-11-19 09:18 CST | Glow bar overlay: lazy per-monitor layer-shell windows, fades on the frame clock only, cairo renderer; approved look 2 px + 10 px glow at 80 % opacity, shown over fullscreen | Accepted | 06 |
+| ADR-0018 | 2026-11-19 09:43 CST | Daemon wiring (injected parts, one deadline timer, fail-safe to red), JSON line control socket with flock single-instance guard, sandboxed user unit with no network address families, idempotent installer; pause lasts until resumed or next login | Accepted | 07 |
 
 ---
 
@@ -84,11 +85,11 @@ Lightweight ADRs. Append new decisions at the bottom, and never rewrite history:
 **Consequences.** THIRD_PARTY_NOTICES lists GTK4, gtk4-layer-shell and PyGObject as system dependencies (not bundled).
 
 ## ADR-0009: Pause/resume keybinding
-**Recorded.** 2026-11-18 21:53 CST (Phase 00). Status: Proposed, owner question 1, confirmed in Phase 07.
+**Recorded.** 2026-11-18 21:53 CST (Phase 00). Status: Accepted (2026-11-19 09:43 CST, Phase 07, owner question 1).
 **Context.** SUPER+ALT+V is already bound (Prometheus: cycle verbosity).
 **Options considered.** SUPER+ALT+SHIFT+V (free); another free SUPER+ALT letter (E, Q, R, U, Y, Z).
 **Decision.** SUPER+ALT+SHIFT+V, unless the owner picks another.
-**Consequences.** Phase 07 re-checks it is still free before binding.
+**Consequences.** Phase 07 re-checks it is still free before binding. **Confirmed 2026-11-19 09:43 CST (Phase 07):** Nick chose the proposed SUPER+ALT+SHIFT+V (owner question 1). `hyprctl binds -j` showed modmask 73 + `V` unbound (Prometheus holds 72 + `V`); `scripts/install.sh` repeats that check on every run and refuses to touch anything if another binding owns the key. The bind runs `vpn-monitor toggle`; Nick pressed it live and the log shows `pause` then `resume`.
 
 ## ADR-0010: Privacy baseline
 **Recorded.** 2026-11-18 21:53 CST (Phase 00)
@@ -151,3 +152,15 @@ Lightweight ADRs. Append new decisions at the bottom, and never rewrite history:
 **Look (owner question 2).** Nick reviewed the first version live and in screenshots and answered: "Can you make it a little more subtle and show me a more subtle implementation?" Two variants ran live side by side; he chose **"B: 2 px + 10 px, 80 %"**: `thickness = 2`, `glow = 10`, `red = "#FF3B30CC"`, `blue = "#0A84FFCC"`, `fade_ms = 150`. These are now the defaults in `config.py` and `config/config.example.toml`.
 **Fullscreen (owner question 3).** Nick: "Yes, show it". `indicator.show_on_fullscreen` stays `true`; the overlay layer sits above fullscreen windows (verified over a fullscreen window).
 **Consequences.** Idle cost after a fade is zero redraws (draw counter, `vpn-monitor preview` prints it) and no CPU; a hidden bar has no mapped surface. Each fade costs about 10 draws at 60 Hz. Clicks pass through (confirmed by Nick on the live bar). The Phase 07 daemon must call `ensure_layer_shell(argv)` before anything imports Gtk.
+
+## ADR-0018: Daemon, control socket, service unit and installer
+**Recorded.** 2026-11-19 09:43 CST (Phase 07). Status: Accepted.
+**Context.** Phase 07 turns the parts into one always-on service (spec A4, R10, R11, R12, S3, S5) and must stay testable without a desktop. Nick answered owner question 1 (key: SUPER+ALT+SHIFT+V) and 4 (a pause lasts until resumed or the next login).
+**Options considered.** Wiring: (a) code in `run()` against GLib and GTK directly; (b) a `Daemon` class that takes the sources, sink, scheduler, clock and log as arguments. Control channel: (a) D-Bus; (b) a Unix socket with one JSON line per request. Single instance: (a) PID file; (b) `flock` on a lock file; (c) trying to connect first. Service sandbox: (a) minimal; (b) strict, with `RestrictAddressFamilies=AF_UNIX AF_NETLINK`. Pause: (a) persisted across restarts; (b) in memory only, optional `pause.auto_resume_minutes`.
+**Decision.** (b) throughout.
+- `Daemon` (`daemon.py`) is built from injected parts, so the full pipeline runs against fakes. After **every** input it applies and logs the Decision if it changed, calls `VpnSource.set_active(engine.active)` when that flipped and re-arms **one** timer at `engine.next_deadline()` (ADR-0013); a stuck VPN watcher therefore turns blue into red when the reading goes stale. An exception in any callback is logged and fed to the engine as an `UNKNOWN` reading (red); if the engine itself fails a blue bar is forced red; a failing overlay is logged and the daemon keeps running. SIGTERM/SIGINT stop the sources and remove the bar; SIGHUP reloads the config (the new engine replays the last focus, reading and pause state; a changed `[appearance]` rebuilds the overlay; `[vpn]` and `[probes]` changes are logged as needing a restart; a broken file keeps the old config).
+- Control socket (`control.py`): `$XDG_RUNTIME_DIR/vpn-monitor/control.sock`, directory 0700, socket 0600 (created under umask 0177), `SO_PEERCRED` uid check (a stranger gets no reply), one request line of at most 4096 bytes (`{"cmd":"pause|resume|toggle|status"}`), 0.5 s client timeout, anything else rejected and logged with only a sanitised 40-character command. The lock `daemon.lock` (an `flock`, released by the kernel on any exit) makes a second `run` exit 1 with "another instance is already running"; a leftover socket file is replaced only if it is really a socket.
+- Unit: `PartOf`/`After=graphical-session.target`, `Restart=on-failure`, `RestartSec=2`, `StateDirectory`/`RuntimeDirectory` (so `ProtectSystem=strict` needs no path list), `ProtectHome=read-only`, `PrivateTmp`, `NoNewPrivileges`, empty capability set, `SystemCallFilter=@system-service` and `RestrictAddressFamilies=AF_UNIX AF_NETLINK`: **the process cannot open an IP socket at all, so spec S2 is enforced by the kernel**, while Wayland, Hyprland's socket and netlink (for `ip`) keep working. `systemd-analyze --user security`: **1.6 OK** (an offline check of the first draft scored 4.0).
+- `scripts/install.sh` (idempotent): symlink `~/.local/bin/vpn-monitor` to `scripts/vpn-monitor` (a wrapper that runs the repo with the system python), copy the unit, add one marked block to `bindings.lua` (backup `bindings.lua.bak.vpn-monitor` made once; the key is re-checked with `hyprctl binds -j` first and nothing changes if it is taken), `hyprctl reload`, enable and restart. `scripts/uninstall.sh` reverses each step; the bindings file is restored byte for byte if it was not edited meanwhile, and the backup stays.
+- Pause is in memory only. With the default `pause.auto_resume_minutes = 0` it lasts until resumed or the next login (owner question 4).
+**Consequences.** `vpn-monitor pause|resume|toggle` notify through `notify-send`; `status` shows focus, reading with per-family reasons, indicator, uptime and watcher health. Reinstall after moving the repository (the symlink points into it). **Found live:** the daemon re-execs with `LD_PRELOAD=libgtk4-layer-shell.so` (ADR-0017) and every child `ip` inherited it, loading GTK first: each probe took 300 to 400 ms (a red bar for about 0.3 s each time a browser gained focus) instead of 20 ms. `vpn._c_env()` now drops that preload from child environments; reading age at start fell from about 0.4 s to 6 ms. The overlay's first map still takes about 150 to 200 ms, so a bar appears that long after focus (ADR-0017).

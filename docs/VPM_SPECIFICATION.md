@@ -55,10 +55,10 @@ These amendments supersede conflicting text in the earlier sections. Each amendm
 The project lives in a single Git repository that is ready to publish on GitHub. It must contain and keep accurate: README, LICENSE, NOTICE, THIRD_PARTY_NOTICES, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, CHANGELOG, .gitignore, .dockerignore, .editorconfig, .github/ (CI, templates, Dependabot), and docs/. Private data never gets committed; `.gitignore` and a pre-commit secret scan enforce this. The GitHub repo (`antonizick/VPNMonitor`) is created **private** in Phase 01; making it public is the owner's decision in Phase 09. Licence: MIT (matches the owner's other repos; ADR-0008).
 
 ### 2.5 Owner questions (status as of 2026-11-18 21:53 CST)
-1. **Open (default proposed).** Pause/resume keybinding. SUPER+ALT+V is taken (Prometheus: cycle verbosity). Proposed default: **SUPER+ALT+SHIFT+V** (free on 2026-11-18). Needed by Phase 07.
+1. **Answered (2026-11-19 09:43 CST, Phase 07, ADR-0009).** Pause/resume keybinding: **SUPER+ALT+SHIFT+V** (SUPER+ALT+V is taken by Prometheus), checked free on the live machine.
 2. **Answered (2026-11-19 09:18 CST, Phase 06, ADR-0017).** Exact look: bar thickness, glow size and the two colours. Proposed default was 3 px core line + 12 px glow (logical px), red `#FF3B30`, blue `#0A84FF`. The owner asked for something more subtle and chose 2 px core + 10 px glow with both colours at 80 % opacity (`#FF3B30CC`, `#0A84FFCC`).
 3. **Answered (2026-11-19 09:18 CST, Phase 06).** Show the bar over a fullscreen browser (videos)? Yes (it is thin; a safety signal should not disappear): `indicator.show_on_fullscreen = true`.
-4. **Open (default proposed).** How long a pause lasts. Proposed default: until resumed or the next login. Alternative: auto-resume after N minutes. Needed by Phase 07.
+4. **Answered (2026-11-19 09:43 CST, Phase 07, ADR-0018).** A pause lasts until resumed or the next login (not persisted). `pause.auto_resume_minutes` (default 0) can add an automatic resume.
 5. **Deferred (future `/phase-add`).** DNS-leak checking (whether DNS queries bypass the tunnel) is not part of this plan; the route test does not detect it. README states this limit.
 6. **Open.** Make the GitHub repo public and/or publish a release at the end? Default: stays private, no release. Needed by Phase 09.
 
@@ -67,7 +67,7 @@ Where each idea in `VPM_Brainstorming.md` went. Disposition: **Adopted** (with t
 
 | # | Entry (stamp: label) | Idea | Disposition | Where |
 |---|---|---|---|---|
-| B1 | 2026-11-18 21:30 CST: (unlabelled) | Make it part of the operating system (always there, not an app you open) | Adopted | A4, ADR-0005, R12; Phase 07 |
+| B1 | 2026-11-18 21:30 CST: (unlabelled) | Make it part of the operating system (always there, not an app you open) | Adopted | A4, ADR-0005, R12; Phase 07 built it (2026-11-19 09:43 CST, ADR-0018): a sandboxed systemd user service started at login, `scripts/install.sh` / `uninstall.sh`, pause key SUPER+ALT+SHIFT+V |
 | B2 | 2026-11-18 21:30 CST: (unlabelled) | Trigger only while a browser window has focus | Adopted | A3, ADR-0004, R6, R7; Phase 03 built it in the engine (HIDDEN unless a matched browser or web app is focused, ADR-0013) and the matcher; Phase 05 built the watcher: real focus events from Hyprland's socket2 (2026-11-19 08:37 CST, ADR-0016) |
 | B3 | 2026-11-18 21:30 CST: (unlabelled) | Detect whether the OS is on a VPN | Adopted | A2, ADR-0003, R3, R4, R5; Phase 04 built it (`vpn.py`: per-family route probes, kernel link-kind classification that works for any WireGuard/tun VPN, ADR-0015; `ip monitor` change watcher, ADR-0007; `vpn-monitor probe`), verified live with ProtonVPN: drop → red in 228 ms |
 | B4 | 2026-11-18 21:30 CST: (unlabelled) | No VPN → glowing red line at the bottom of the screen | Adopted | A1, ADR-0002, R8; Phase 06 built it (2026-11-19 09:18 CST, ADR-0017): `overlay.py` click-through layer-shell bar with fades and no idle redraws, `vpn-monitor preview`; look approved by the owner (2 px core + 10 px glow, `#FF3B30CC`) |
@@ -78,6 +78,8 @@ Where each idea in `VPM_Brainstorming.md` went. Disposition: **Adopted** (with t
 - **AM-1 (2026-11-18 22:55 CST, Phase 04, ADR-0015): R3 classification uses the kernel link kind.** "NetworkManager reports it as a `wireguard`, `tun` or `vpn` device" is implemented as "the kernel reports the link kind `wireguard` or `tun` (`ip -d -j link show`)", which gives the same answer on the reference machine and also works without NetworkManager. Any `dummy` device, not only named leak guards, counts as blocked. The R5 event source is `ip monitor route rule link` (ADR-0007, Accepted). Verified on the reference machine: with ProtonVPN up both families go through `proton0` (Proton now provides IPv6, so the leak guard is not used); disconnected, IPv4 goes through `wlo1` and IPv6 is unreachable; while reconnecting, both families go into the kill-switch dummy `pvpnksintrf0`.
 
 - **AM-2 (2026-11-19 09:18 CST, Phase 06, ADR-0017): R8 details.** gtk4-layer-shell needs `LD_PRELOAD` even though `gi` imports without it; the overlay re-execs once with it and refuses to run as an ordinary window. The overlay uses GTK's cairo renderer (`GSK_RENDERER=cairo`, overridable) because the GPU renderer cost about 50 MB more memory and some idle CPU for a 12 px bar. The approved look (owner question 2): 2 px core + 10 px glow, `#FF3B30CC` / `#0A84FFCC`.
+
+- **AM-3 (2026-11-19 09:43 CST, Phase 07, ADR-0018): R10 and S2 details.** The control protocol is one JSON line per connection (`{"cmd": "pause" | "resume" | "toggle" | "status"}`, reply `{"ok": true, ...}` or `{"ok": false, "error": ...}`); `vpn-monitor status` exits 3 and `pause`/`resume`/`toggle` exit 3 when no daemon is running. The user unit sets `RestrictAddressFamilies=AF_UNIX AF_NETLINK`, so S2 (no external contact) is also enforced by the kernel for the service. Owner questions 1 and 4 are answered (above).
 
 ---
 

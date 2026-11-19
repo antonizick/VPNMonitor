@@ -4,11 +4,20 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+- Probes took 300 to 400 ms inside the daemon (a red bar for about 0.3 s every time a browser gained focus) because child `ip` processes inherited the daemon's `LD_PRELOAD=libgtk4-layer-shell.so`; the layer-shell preload is now dropped from their environment (20 ms probes, reading age at start 6 ms).
+
 ### Changed
 - Default look approved at the Phase 06 review (owner question 2): `appearance.thickness = 2`, `glow = 10`, `red = "#FF3B30CC"`, `blue = "#0A84FFCC"` (was 3 / 12 / `#FF3B30` / `#0A84FF`).
 - `vpn.leak_guard_interfaces` now defaults to ProtonVPN's kill-switch names `ipv6leakintrf*`, `pvpnksintrf*`, `pvpnrouteintrf*` (was `ipv6leakintrf0`).
 
 ### Added
+- The daemon (`daemon.py`): focus + VPN sources → engine → overlay on the GLib main loop, one deadline timer so a stuck VPN watcher turns blue into red, fail-safe to red on any callback or engine error, clean shutdown on SIGTERM/SIGINT, config reload on SIGHUP (ADR-0018).
+- Control socket (`control.py`): `$XDG_RUNTIME_DIR/vpn-monitor/control.sock` (0700/0600, `SO_PEERCRED` uid check, one JSON line, fixed command set), single-instance `flock`, and the CLI `run`, `pause`, `resume`, `toggle` (desktop notifications), `status [--json]` and `log [-f] [--events]` (spec AM-3).
+- `packaging/systemd/vpn-monitor.service`: sandboxed user unit (`RestrictAddressFamilies=AF_UNIX AF_NETLINK`, `ProtectSystem=strict`, … exposure 1.6 OK).
+- `scripts/install.sh`, `scripts/uninstall.sh` and the `scripts/vpn-monitor` wrapper: symlink, user unit, the pause key SUPER+ALT+SHIFT+V in `bindings.lua` (backup, marked block, key-free check), all idempotent and reversible (ADR-0009 accepted).
+- Soft audio feedback for pause (falling cue) and resume (rising cue), including the SUPER+ALT+SHIFT+V key: `sound.py` synthesises two short sine cues and plays them with `pw-play`/`paplay`/`aplay`; `pause.sound` and `pause.sound_volume` configure it.
+- README install, usage, uninstall and troubleshooting sections; SECURITY control-socket and sandbox details.
 - Governance files: `LICENSE` (MIT), `NOTICE`, `THIRD_PARTY_NOTICES.md`, `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CHANGELOG.md`.
 - `.gitignore`, `.dockerignore`, `.editorconfig`.
 - `.github/` issue templates, pull request template and Dependabot config for GitHub Actions.

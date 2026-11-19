@@ -1,0 +1,49 @@
+# VPN Monitor: user service, installed by scripts/install.sh to ~/.config/systemd/user/.
+# Draws a red/blue bar under the focused browser. Sandboxed to what it needs: the Wayland and
+# Hyprland sockets, the kernel routing table (netlink) and its own state and runtime directories.
+# It has no network address families at all, so spec S2 (never contact external hosts) is enforced
+# by the kernel, not just by the code.
+[Unit]
+Description=VPN Monitor: red/blue bar when the focused browser is (not) on a VPN
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/vpn-monitor run --foreground
+Restart=on-failure
+RestartSec=2
+# The daemon re-execs itself once with LD_PRELOAD=libgtk4-layer-shell.so; the cairo renderer keeps
+# idle CPU at zero (ADR-0017).
+Environment=GSK_RENDERER=cairo
+StateDirectory=vpn-monitor
+RuntimeDirectory=vpn-monitor
+StateDirectoryMode=0700
+RuntimeDirectoryMode=0700
+UMask=0077
+
+# Sandboxing (checked with `systemd-analyze --user security vpn-monitor.service`)
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+CapabilityBoundingSet=
+ProtectProc=invisible
+KeyringMode=private
+RestrictNamespaces=yes
+SystemCallFilter=@system-service
+
+[Install]
+WantedBy=graphical-session.target

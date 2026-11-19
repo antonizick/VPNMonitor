@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Wrapper installed as ~/.local/bin/vpn-monitor (a symlink to this file by scripts/install.sh).
+# Runs the package straight from the repository with the SYSTEM python, which is the one that has
+# PyGObject (pacman). The daemon re-execs itself once with LD_PRELOAD=libgtk4-layer-shell.so when
+# it needs a layer-shell surface, so nothing is set here for that.
+here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+export PYTHONPATH="$here/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONDONTWRITEBYTECODE=1 # the service sandbox mounts the repository read-only
+exec /usr/bin/python3 -m vpn_monitor "$@"

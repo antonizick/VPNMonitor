@@ -31,7 +31,7 @@ import json
 import os
 import subprocess
 import time
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
 from fnmatch import fnmatchcase
@@ -66,9 +66,21 @@ _UNREACHABLE_TYPES = frozenset({"unreachable"})
 _MAX_DETAIL = 160
 
 
-def _c_env() -> dict[str, str]:
-    """Environment for ``ip``: untranslated error messages, so they can be matched."""
-    return {**os.environ, "LC_ALL": "C", "LANG": "C"}
+def _c_env(environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Environment for ``ip``: untranslated error messages, so they can be matched.
+
+    The daemon runs with ``LD_PRELOAD=libgtk4-layer-shell.so`` (needed for its own window only).
+    A child ``ip`` that inherits it loads GTK first and takes ~200 ms instead of ~5 ms, which made
+    every probe 300 to 400 ms, so any layer-shell entry is dropped (other preloads are kept).
+    """
+    env = dict(os.environ if environ is None else environ)
+    preload = [p for p in env.get("LD_PRELOAD", "").split() if "gtk4-layer-shell" not in p]
+    if preload:
+        env["LD_PRELOAD"] = " ".join(preload)
+    else:
+        env.pop("LD_PRELOAD", None)
+    env.update(LC_ALL="C", LANG="C")
+    return env
 
 
 def _short(text: str) -> str:
