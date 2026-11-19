@@ -1,0 +1,42 @@
+{
+  "description": "VPN for IPv4, machine has no IPv6 at all: blue",
+  "source": "synthesised from the reference machine's interface names (ADR-0015)",
+  "probes": {
+    "ipv4": "192.0.2.1",
+    "ipv6": "2001:db8::1111"
+  },
+  "commands": {
+    "route4": {
+      "returncode": 0,
+      "stdout": "[{\"dst\": \"192.0.2.1\", \"dev\": \"proton0\", \"table\": \"245447468\", \"prefsrc\": \"10.2.0.2\", \"uid\": 1000, \"flags\": []}]",
+      "stderr": ""
+    },
+    "route6": {
+      "returncode": 2,
+      "stdout": "",
+      "stderr": "RTNETLINK answers: Network is unreachable\n"
+    },
+    "links": {
+      "returncode": 0,
+      "stdout": "[{\"ifname\": \"lo\"}, {\"ifname\": \"eno1\"}, {\"ifname\": \"wlo1\"}, {\"ifname\": \"tailscale0\", \"linkinfo\": {\"info_kind\": \"tun\"}}, {\"ifname\": \"docker0\", \"linkinfo\": {\"info_kind\": \"bridge\"}}, {\"ifname\": \"proton0\", \"linkinfo\": {\"info_kind\": \"wireguard\"}}, {\"ifname\": \"ipv6leakintrf0\", \"linkinfo\": {\"info_kind\": \"dummy\"}}, {\"ifname\": \"pvpnksintrf0\", \"linkinfo\": {\"info_kind\": \"dummy\"}}]",
+      "stderr": ""
+    }
+  },
+  "expect": {
+    "state": "vpn",
+    "routes": [
+      [
+        4,
+        "proton0",
+        "routed",
+        true
+      ],
+      [
+        6,
+        null,
+        "unreachable",
+        false
+      ]
+    ]
+  }
+}

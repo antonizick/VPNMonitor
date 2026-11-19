@@ -1,0 +1,42 @@
+{
+  "description": "Wi-Fi off: both families unreachable (red)",
+  "source": "synthesised from the reference machine's interface names (ADR-0015)",
+  "probes": {
+    "ipv4": "192.0.2.1",
+    "ipv6": "2001:db8::1111"
+  },
+  "commands": {
+    "route4": {
+      "returncode": 2,
+      "stdout": "",
+      "stderr": "RTNETLINK answers: Network is unreachable\n"
+    },
+    "route6": {
+      "returncode": 2,
+      "stdout": "",
+      "stderr": "RTNETLINK answers: Network is unreachable\n"
+    },
+    "links": {
+      "returncode": 0,
+      "stdout": "[{\"ifname\": \"lo\"}, {\"ifname\": \"eno1\"}, {\"ifname\": \"wlo1\"}, {\"ifname\": \"tailscale0\", \"linkinfo\": {\"info_kind\": \"tun\"}}, {\"ifname\": \"docker0\", \"linkinfo\": {\"info_kind\": \"bridge\"}}]",
+      "stderr": ""
+    }
+  },
+  "expect": {
+    "state": "no_vpn",
+    "routes": [
+      [
+        4,
+        null,
+        "unreachable",
+        false
+      ],
+      [
+        6,
+        null,
+        "unreachable",
+        false
+      ]
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "description": "Tailscale exit node in use: both families via tailscale0, table 52",
+  "source": "synthesised from the reference machine's interface names (ADR-0015)",
+  "probes": {
+    "ipv4": "192.0.2.1",
+    "ipv6": "2001:db8::1111"
+  },
+  "commands": {
+    "route4": {
+      "returncode": 0,
+      "stdout": "[{\"dst\": \"192.0.2.1\", \"dev\": \"tailscale0\", \"table\": \"52\", \"prefsrc\": \"100.64.0.5\", \"uid\": 1000, \"flags\": []}]",
+      "stderr": ""
+    },
+    "route6": {
+      "returncode": 0,
+      "stdout": "[{\"dst\": \"2001:db8::1111\", \"dev\": \"tailscale0\", \"table\": \"52\", \"prefsrc\": \"fd7a:115c:a1e0::5\", \"metric\": 1024, \"flags\": []}]",
+      "stderr": ""
+    },
+    "links": {
+      "returncode": 0,
+      "stdout": "[{\"ifname\": \"lo\"}, {\"ifname\": \"eno1\"}, {\"ifname\": \"wlo1\"}, {\"ifname\": \"tailscale0\", \"linkinfo\": {\"info_kind\": \"tun\"}}, {\"ifname\": \"docker0\", \"linkinfo\": {\"info_kind\": \"bridge\"}}]",
+      "stderr": ""
+    }
+  },
+  "expect": {
+    "state": "vpn",
+    "routes": [
+      [
+        4,
+        "tailscale0",
+        "routed",
+        true
+      ],
+      [
+        6,
+        "tailscale0",
+        "routed",
+        true
+      ]
+    ]
+  }
+}

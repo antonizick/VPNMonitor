@@ -64,7 +64,8 @@ class VpnConfig:
         "nordlynx",
         "mullvad*",
     )
-    leak_guard_interfaces: tuple[str, ...] = ("ipv6leakintrf0",)
+    leak_guard_interfaces: tuple[str, ...] = ("ipv6leakintrf*", "pvpnksintrf*", "pvpnrouteintrf*")
+    """Kill-switch / leak-guard names (ProtonVPN's). Any kernel ``dummy`` device counts too."""
     recheck_interval_s: float = 5.0
     max_reading_age_s: float = 10.0
     probe_timeout_s: float = 1.0

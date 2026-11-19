@@ -1,0 +1,42 @@
+{
+  "description": "ProtonVPN reconnecting: kill-switch dummy pvpnksintrf0 holds both families (red)",
+  "source": "recorded on the reference machine 2026-11-18 22:55 CST while ProtonVPN was toggled by Nick, sanitised",
+  "probes": {
+    "ipv4": "192.0.2.1",
+    "ipv6": "2001:db8::1111"
+  },
+  "commands": {
+    "route4": {
+      "returncode": 0,
+      "stdout": "[{\"dst\":\"192.0.2.1\",\"gateway\":\"100.85.0.1\",\"dev\":\"pvpnksintrf0\",\"prefsrc\":\"100.85.0.1\",\"flags\":[],\"uid\":1000,\"cache\":[]}]\n",
+      "stderr": ""
+    },
+    "route6": {
+      "returncode": 0,
+      "stdout": "[{\"dst\":\"2001:db8::1111\",\"from\":\"::\",\"gateway\":\"fdeb:446c:912d:8da::1\",\"dev\":\"pvpnksintrf0\",\"protocol\":\"static\",\"prefsrc\":\"fdeb:446c:912d:8da::\",\"metric\":95,\"flags\":[],\"pref\":\"medium\"}]\n",
+      "stderr": ""
+    },
+    "links": {
+      "returncode": 0,
+      "stdout": "[{\"ifname\": \"lo\"}, {\"ifname\": \"eno1\"}, {\"ifname\": \"wlo1\"}, {\"ifname\": \"tailscale0\", \"linkinfo\": {\"info_kind\": \"tun\"}}, {\"ifname\": \"br-85ff5d5148da\", \"linkinfo\": {\"info_kind\": \"bridge\"}}, {\"ifname\": \"docker0\", \"linkinfo\": {\"info_kind\": \"bridge\"}}, {\"ifname\": \"br-dd9ac996a1e1\", \"linkinfo\": {\"info_kind\": \"bridge\"}}, {\"ifname\": \"veth4c3e591\", \"linkinfo\": {\"info_kind\": \"veth\"}}, {\"ifname\": \"veth8ce1f6c\", \"linkinfo\": {\"info_kind\": \"veth\"}}, {\"ifname\": \"vetha13f32c\", \"linkinfo\": {\"info_kind\": \"veth\"}}, {\"ifname\": \"pvpnksintrf0\", \"linkinfo\": {\"info_kind\": \"dummy\"}}]",
+      "stderr": ""
+    }
+  },
+  "expect": {
+    "state": "no_vpn",
+    "routes": [
+      [
+        4,
+        "pvpnksintrf0",
+        "blocked",
+        false
+      ],
+      [
+        6,
+        "pvpnksintrf0",
+        "blocked",
+        false
+      ]
+    ]
+  }
+}

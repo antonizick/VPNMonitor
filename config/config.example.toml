@@ -29,10 +29,12 @@ ipv6 = "2606:4700:4700::1111"
 
 [vpn]
 # Interface names (shell globs) that count as a VPN when they carry the internet route.
-# NetworkManager devices of type wireguard, tun or vpn count as well (Phase 04).
+# Any interface the kernel reports as a WireGuard or tun/tap device counts as well, whatever
+# its name, so most VPNs need no entry here.
 interface_patterns = ["proton*", "wg*", "tun*", "tailscale*", "nordlynx", "mullvad*"]
-# Leak-guard dummy interfaces: a route into one of them counts as blocked, not as a leak.
-leak_guard_interfaces = ["ipv6leakintrf0"]
+# Leak-guard / kill-switch interfaces (shell globs): a route into one counts as blocked, not as
+# a leak. Any kernel `dummy` device counts as well; these are ProtonVPN's names.
+leak_guard_interfaces = ["ipv6leakintrf*", "pvpnksintrf*", "pvpnrouteintrf*"]
 # Re-check the routes this often while a browser is focused (seconds). Must be shorter than
 # max_reading_age_s.
 recheck_interval_s = 5.0
