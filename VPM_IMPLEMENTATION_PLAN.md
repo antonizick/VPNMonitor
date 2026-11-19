@@ -235,7 +235,7 @@ Newest entries at the bottom. Format: `### YYYY-MM-DD HH:MM TZ: Phase NN: <title
 - **Tests:** 882 passed (25 new: 21 fault-injection, 4 focus-repeat; the main new focus test fails without the fix). Coverage 99 % (engine, config, eventlog, mainloop, model 100 %). `uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest` and `pre-commit run --all-files` pass.
 
 ### 2026-11-19 13:15 CST: Phase 09: Release & publication (✅ Complete)
-- **Timeline:** started 2026-11-19 13:12 CST (claim commit ca4a0a9) · finished 2026-11-19 13:15 CST · merged not merged yet
+- **Timeline:** started 2026-11-19 13:12 CST (claim commit ca4a0a9) · finished 2026-11-19 13:15 CST · merged 2026-11-19 13:16 CST
 - **Model:** ran as Claude Sonnet 5.5 (plan lists Sonnet 5.5)
 - **Built:** version 1.0.0 (`pyproject.toml`, `__init__.py`, `uv.lock`, one test), CHANGELOG `[1.0.0]` with timestamp, README final pass (status, clone URL, final-report link), `docs/VPM_FINAL-REPORT.md` with the generated timeline markers, Definition of done ticked with evidence, spec owner question 6 closed, tag `v1.0.0` (annotated, pushed).
 - **Clean-clone check:** fresh clone of the branch: `scripts/install.sh` twice and `uninstall.sh` against a temporary HOME with stub `systemctl`/`hyprctl` (all exit 0, idempotent, bindings restored exactly), then ruff, ruff format, mypy --strict and pytest (882 passed). Live install afterwards: `vpn-monitor status` running, VPN reading blue-eligible.
