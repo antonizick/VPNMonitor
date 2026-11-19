@@ -1,0 +1,70 @@
+# VPN Monitor configuration: every key, with its built-in default.
+#
+# Copy to ~/.config/vpn-monitor/config.toml (or $XDG_CONFIG_HOME/vpn-monitor/config.toml) and
+# keep only the keys you change: every key is optional and missing keys use the defaults below.
+# Unknown keys are ignored with a warning in the log; a wrong type or value stops the daemon with
+# an error that names the key. A test checks that this file equals the defaults in
+# src/vpn_monitor/config.py.
+
+[browsers]
+# Window classes that count as a browser, compared exactly (case-sensitive).
+classes = [
+    "brave-browser",
+    "chromium",
+    "google-chrome",
+    "firefox",
+    "librewolf",
+    "zen",
+    "vivaldi-stable",
+    "org.mozilla.firefox",
+]
+# Python regular expressions matched against the whole window class. The default covers
+# Chromium-family --app windows, which is how Omarchy web apps run (brave-<host>__-Default…).
+patterns = ['^(brave|chrome|chromium|msedge)-.+__.*$']
+
+[probes]
+# Destinations whose route is looked up with `ip route get`. Nothing is ever sent to them.
+ipv4 = "1.1.1.1"
+ipv6 = "2606:4700:4700::1111"
+
+[vpn]
+# Interface names (shell globs) that count as a VPN when they carry the internet route.
+# NetworkManager devices of type wireguard, tun or vpn count as well (Phase 04).
+interface_patterns = ["proton*", "wg*", "tun*", "tailscale*", "nordlynx", "mullvad*"]
+# Leak-guard dummy interfaces: a route into one of them counts as blocked, not as a leak.
+leak_guard_interfaces = ["ipv6leakintrf0"]
+# Re-check the routes this often while a browser is focused (seconds). Must be shorter than
+# max_reading_age_s.
+recheck_interval_s = 5.0
+# A reading older than this is stale and shows red (seconds).
+max_reading_age_s = 10.0
+# Give up on a single route probe after this long; the reading is then unknown (red).
+probe_timeout_s = 1.0
+
+[indicator]
+# Show the bar over a fullscreen browser (videos).
+show_on_fullscreen = true
+# A VPN reading must hold this long before the bar turns blue (milliseconds). 0 = at once.
+# A VPN that flaps faster than this keeps the bar red.
+blue_confirm_ms = 0
+# Must stay 0: red is never delayed, because a delay could keep a false blue on screen.
+red_confirm_ms = 0
+
+[appearance]
+# Fixed colours, independent of the Omarchy theme: "#RRGGBB" or "#RRGGBBAA".
+red = "#FF3B30"
+blue = "#0A84FF"
+# Core line and glow height in logical pixels.
+thickness = 3
+glow = 12
+# Fade on show, hide and colour change (milliseconds).
+fade_ms = 150
+
+[pause]
+# Resume automatically after this many minutes. 0 = stay paused until resumed or the next login.
+auto_resume_minutes = 0
+
+[log]
+# Rotate each log file (vpn-monitor.log, events.jsonl) at this size, keeping this many old files.
+max_bytes = 1000000
+backup_count = 3
