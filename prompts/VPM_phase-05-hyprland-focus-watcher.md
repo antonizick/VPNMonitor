@@ -29,3 +29,9 @@ Parser tests over recorded event lines (including titles with commas and `>>` in
 
 ## Phase-specific docs
 `docs/VPM_ARCHITECTURE.md` (focus section, event table), README (supported browsers, how to add a class), CHANGELOG. Brainstorm trace B2 updated. Then the standard close-out checklist.
+
+## Notes from Phase 03 (built interfaces you rely on)
+- "No focus" is `FocusEvent("", "", "")`: the engine hides the bar for an empty class.
+- The matcher is `vpn_monitor.browsers.BrowserMatcher` (`DEFAULT_CLASSES`, `DEFAULT_PATTERNS`, `match(cls) -> MatchResult(matched, rule)`; regexes use `re.fullmatch`). Record the real classes you observe and adjust the defaults there and in `config/config.example.toml` (a test checks the two agree).
+- For the title test, register the titles of your fake socket2 lines in `vpn_monitor.eventlog.TitleGuard` and pass it to `EventLog(guard=…)`; it raises `TitleLeakError` if a title reaches a record.
+- If the monitor name is unknown, send `monitor=""`: the engine falls back to the focused monitor from `on_monitors`, else the first known one.

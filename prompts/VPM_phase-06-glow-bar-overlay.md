@@ -30,3 +30,8 @@ Focus/VPN logic, systemd unit, keybinding, install.
 
 ## Phase-specific docs
 `docs/VPM_ARCHITECTURE.md` (overlay section), README (screenshots, appearance config), CHANGELOG, ADR for the approved look. Owner questions 2 and 3 updated. Brainstorm trace B4, B5 updated. Then the standard close-out checklist.
+
+## Notes from Phase 03 (built interfaces you rely on)
+- Appearance config is `config.appearance`: `red`, `blue` (`#RRGGBB` or `#RRGGBBAA`, validated), `thickness` (1–32), `glow` (0–128), `fade_ms` (0–2000, default 150). Fullscreen is `config.indicator.show_on_fullscreen`; the engine already returns HIDDEN for a fullscreen browser when it is off, so the overlay only renders the `Decision`.
+- A `Decision` names one monitor; every other monitor shows nothing. HIDDEN has `monitor == ""`. `apply` may receive the same indicator twice (reason changed); make it idempotent.
+- If the approved look changes a default, change it in `config.py` and `config/config.example.toml` together (a test checks they agree).

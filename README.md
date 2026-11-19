@@ -31,6 +31,22 @@ vpn-monitor status      # current state (add --json for machine-readable output)
 vpn-monitor log         # show recent events
 ```
 
+## Configuration
+Optional: `~/.config/vpn-monitor/config.toml` (or `$XDG_CONFIG_HOME/vpn-monitor/config.toml`). Every key is optional; [`config/config.example.toml`](config/config.example.toml) lists them all with their defaults. Copy it and keep only what you change. The main keys:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `browsers.classes` / `browsers.patterns` | Brave, Chromium, Chrome, Firefox family, Zen, Vivaldi / Chromium `--app` windows | which windows count as a browser (exact classes; regexes matched against the whole class) |
+| `probes.ipv4` / `probes.ipv6` | `1.1.1.1` / `2606:4700:4700::1111` | destinations whose route is looked up (nothing is sent to them) |
+| `vpn.interface_patterns` | `proton*`, `wg*`, `tun*`, `tailscale*`, `nordlynx`, `mullvad*` | interface names that count as a VPN |
+| `vpn.recheck_interval_s` / `vpn.max_reading_age_s` | `5.0` / `10.0` | re-check while a browser is focused; older readings show red |
+| `indicator.show_on_fullscreen` | `true` | show the bar over fullscreen browsers |
+| `indicator.blue_confirm_ms` | `0` | a VPN reading must hold this long before blue (red is never delayed) |
+| `appearance.red` / `appearance.blue` / `thickness` / `glow` | `#FF3B30` / `#0A84FF` / `3` / `12` | the bar's look |
+| `pause.auto_resume_minutes` | `0` | 0 = paused until resumed or the next login |
+
+Unknown keys are ignored with a warning in the log; an invalid value stops the daemon with an error naming the key. Logs live in `~/.local/state/vpn-monitor/` (`vpn-monitor.log` and `events.jsonl`, rotated by size).
+
 ## Honest limits
 - **Route-based.** "VPN" means internet routes leave through a VPN interface. It does not prove your VPN provider is trustworthy.
 - **DNS leaks are not detected.** The route test cannot see whether DNS queries bypass the tunnel. This is deferred (owner question 5); it may be added later.

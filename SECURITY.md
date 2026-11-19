@@ -13,7 +13,7 @@ Out of scope: vulnerabilities in GTK, Hyprland, NetworkManager, your VPN client 
 ## Security and privacy baseline (summary)
 The full text is in `docs/VPM_SPECIFICATION.md` (Amendments §2.3).
 
-- **S1 No window titles.** Only the window class is read. Titles are never logged, stored or displayed.
+- **S1 No window titles.** Only the window class is read. Titles are never logged, stored or displayed. The logs (`~/.local/state/vpn-monitor/`, directory mode 0700) hold window classes, interface names and reasons only; an Omarchy web app's class includes its host name (for example `brave-basecamp.com__-Default`). Tests use a `TitleGuard` that fails if a title would reach either log.
 - **S2 No network calls.** Detection uses the local routing table and NetworkManager. No IP-check services, no external hosts, no telemetry.
 - **S3 Least privilege.** Runs as the user; no root, no sudo, no capabilities, no system-wide files.
 - **S4 Never steals input.** The overlay is click-through and takes no keyboard focus.

@@ -31,3 +31,10 @@ Integration tests with fakes: full daemon pipeline (fake focus + fake VPN + reco
 
 ## Phase-specific docs
 README (install, usage, uninstall, troubleshooting), SECURITY (control socket), `docs/VPM_ARCHITECTURE.md`, CHANGELOG, ADR-0009 Accepted (or superseded), OSMods write-up + `OSMODs README.md`. Owner questions 1 and 4 updated. Brainstorm trace B1 updated. Then the standard close-out checklist.
+
+## Notes from Phase 03 (built interfaces you rely on)
+- Build with `config = load_config()` (raises `ConfigError` naming the key; log `config.warnings`), `engine = Engine.from_config(config, time.monotonic)`, `log = EventLog(max_bytes=config.log.max_bytes, backup_count=config.log.backup_count)`.
+- Every `on_*` / `tick` returns a `Decision` only when it changed: apply it to the overlay and `log.decision(d)`.
+- After every input, (re)schedule **one** `GLib.timeout_add` at `engine.next_deadline()` (monotonic seconds; `None` = cancel) and call `engine.tick()` when it fires. Without it a stuck VPN watcher would leave blue on screen (ADR-0013). Call `vpn_source.set_active(engine.active)` whenever `active` changes.
+- Pause: `engine.on_pause(True/False)`; `config.pause.auto_resume_minutes` (0 = until resume or next login, owner question 4).
+- Status output can use `engine.decision` (indicator, monitor, reason, inputs) and `engine.paused`.

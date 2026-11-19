@@ -30,3 +30,10 @@ Unit tests over fixture JSON: Proton up (v4 via proton0, v6 to the leak guard), 
 
 ## Phase-specific docs
 `docs/VPM_ARCHITECTURE.md` (detection algorithm, classification table), README (what blue means, limits), ADR-0007 Accepted, CHANGELOG. Brainstorm trace B3 updated. Then the standard close-out checklist.
+
+## Notes from Phase 03 (built interfaces you rely on)
+- Config keys are in `vpn_monitor.config`: `config.probes.ipv4` / `.ipv6`, `config.vpn.interface_patterns`, `.leak_guard_interfaces`, `.recheck_interval_s`, `.max_reading_age_s`, `.probe_timeout_s` (validated: `probe_timeout_s < recheck_interval_s < max_reading_age_s`).
+- `VpnReading.timestamp` must come from `time.monotonic()` (the engine's clock).
+- The engine shows blue only if `state is VPN` **and** the routes agree (`engine.reading_problem`, ADR-0013): at least one family `ROUTED` with `is_vpn=True`, none `ROUTED` with `is_vpn=False`, none `ERROR`. A leak-guard route must be `BLOCKED` (or `UNREACHABLE`), not `ROUTED`. Keep `routes` consistent with `state`, or the bar is red with "VPN reading contradicts its routes".
+- The "active" hook is `Engine.active` (True while a bar is shown); the daemon (Phase 07) passes it to `VpnSource.set_active`.
+- Log through `vpn_monitor.eventlog.EventLog.record(event="reading", reason=…, inputs={…})`; `engine.describe_routes(reading)` gives the compact route summary.

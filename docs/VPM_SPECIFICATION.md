@@ -68,7 +68,7 @@ Where each idea in `VPM_Brainstorming.md` went. Disposition: **Adopted** (with t
 | # | Entry (stamp: label) | Idea | Disposition | Where |
 |---|---|---|---|---|
 | B1 | 2026-11-18 21:30 CST: (unlabelled) | Make it part of the operating system (always there, not an app you open) | Adopted | A4, ADR-0005, R12; Phase 07 |
-| B2 | 2026-11-18 21:30 CST: (unlabelled) | Trigger only while a browser window has focus | Adopted | A3, ADR-0004, R6, R7; Phases 03, 05 |
+| B2 | 2026-11-18 21:30 CST: (unlabelled) | Trigger only while a browser window has focus | Adopted | A3, ADR-0004, R6, R7; Phase 03 built it in the engine (HIDDEN unless a matched browser or web app is focused, ADR-0013) and the matcher; Phase 05 feeds real focus events |
 | B3 | 2026-11-18 21:30 CST: (unlabelled) | Detect whether the OS is on a VPN | Adopted | A2, ADR-0003, R3, R4, R5; Phase 04 |
 | B4 | 2026-11-18 21:30 CST: (unlabelled) | No VPN → glowing red line at the bottom of the screen | Adopted | A1, ADR-0002, R8; Phase 06 (look tuned via owner question 2) |
 | B5 | 2026-11-18 21:30 CST: (unlabelled) | VPN active → glowing blue bar at the bottom of the screen | Adopted | A1, ADR-0002, R8; Phase 06 |
