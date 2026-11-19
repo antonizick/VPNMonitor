@@ -1,9 +1,12 @@
-"""Command-line interface (spec R10). Daemon subcommands are stubs until Phase 07."""
+"""Command-line interface (spec R10): the daemon, its control commands, logs and diagnostics."""
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import os
+import subprocess
 import sys
 import time
 from collections.abc import Sequence
@@ -11,15 +14,24 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from vpn_monitor import __version__
-from vpn_monitor.model import Decision, FocusEvent, Indicator, VpnReading, VpnState
+from vpn_monitor.model import (
+    Decision,
+    FocusEvent,
+    Indicator,
+    VpnReading,
+    VpnState,
+    reading_to_dict,
+)
 
 if TYPE_CHECKING:
     from vpn_monitor.browsers import BrowserMatcher
     from vpn_monitor.config import Config
 
-NOT_IMPLEMENTED_EXIT = 2
 CONFIG_ERROR_EXIT = 2
 HYPRLAND_EXIT = 2
+NOT_RUNNING_EXIT = 3
+CONTROL_EXIT = 1
+LOG_TAIL_LINES = 200
 PROBE_EXIT = {VpnState.VPN: 0, VpnState.NO_VPN: 1, VpnState.UNKNOWN: 3}
 """``vpn-monitor probe`` exit codes: 0 VPN, 1 not through a VPN, 3 unknown."""
 
@@ -34,7 +46,12 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
 
     run = sub.add_parser("run", help="run the daemon")
-    run.add_argument("--foreground", action="store_true", help="stay in the foreground")
+    run.add_argument(
+        "--foreground",
+        action="store_true",
+        help="print a start-up line to stderr (the daemon never forks; systemd supervises it)",
+    )
+    run.add_argument("--config", type=Path, help="config file (default: the usual location)")
     sub.add_parser("pause", help="hide the bar and stop probing")
     sub.add_parser("resume", help="resume after a pause")
     sub.add_parser("toggle", help="pause if running, resume if paused")
@@ -106,24 +123,6 @@ def build_parser() -> argparse.ArgumentParser:
 PREVIEW_MODES = ("red", "blue", "cycle")
 PREVIEW_STEP_S = 2.0
 """Seconds per step in ``preview cycle``."""
-
-
-def reading_to_dict(reading: VpnReading) -> dict[str, Any]:
-    """JSON-friendly form of a reading."""
-    return {
-        "state": reading.state.value,
-        "reason": reading.reason,
-        "routes": [
-            {
-                "family": r.family,
-                "destination": r.destination,
-                "interface": r.egress_interface,
-                "kind": r.kind.value,
-                "vpn": r.is_vpn,
-            }
-            for r in reading.routes
-        ],
-    }
 
 
 _HEADLINE = {
@@ -422,6 +421,121 @@ def _open_backdrop(monitor: str) -> Any:  # pragma: no cover - live
     return window
 
 
+def notify(summary: str) -> None:
+    """Desktop notification via ``notify-send``; silently skipped if it is missing or fails."""
+    with contextlib.suppress(OSError, subprocess.SubprocessError):
+        subprocess.run(
+            ["notify-send", "-a", "VPN Monitor", "-u", "low", "-t", "2500", summary],
+            check=False,
+            timeout=5,
+            capture_output=True,
+        )
+
+
+def _ask_daemon(command: str) -> dict[str, Any] | int:
+    """Send ``command``; return the reply, or the exit code to use after printing the error."""
+    from vpn_monitor.control import ControlError, DaemonNotRunning, send_command
+
+    try:
+        reply = send_command(command)
+    except DaemonNotRunning:
+        print("vpn-monitor: not running (start it with `vpn-monitor run`)", file=sys.stderr)
+        return NOT_RUNNING_EXIT
+    except ControlError as exc:
+        print(f"vpn-monitor: {exc}", file=sys.stderr)
+        return CONTROL_EXIT
+    if not reply.get("ok"):
+        print(f"vpn-monitor: the daemon refused {command!r}: {reply.get('error')}", file=sys.stderr)
+        return CONTROL_EXIT
+    return reply
+
+
+def _control(command: str) -> int:
+    reply = _ask_daemon(command)
+    if isinstance(reply, int):
+        return reply
+    paused = bool(reply.get("paused"))
+    print("vpn-monitor paused" if paused else "vpn-monitor resumed")
+    notify("VPN Monitor paused" if paused else "VPN Monitor resumed")
+    return 0
+
+
+def _age(seconds: float) -> str:
+    seconds = int(seconds)
+    hours, rest = divmod(seconds, 3600)
+    minutes, secs = divmod(rest, 60)
+    return f"{hours}h {minutes:02d}m" if hours else f"{minutes}m {secs:02d}s"
+
+
+def format_status(status: dict[str, Any]) -> str:
+    """Human form of the daemon's ``status`` reply."""
+    lines = [
+        f"vpn-monitor {status['version']} running (pid {status['pid']}), "
+        f"up {_age(status['uptime_s'])}"
+    ]
+    if status["paused"]:
+        left = status.get("pause_resumes_in_s")
+        extra = f", resumes in {_age(left)}" if left is not None else " until resumed"
+        lines.append(f"  PAUSED{extra}")
+    shown = status["indicator"].upper()
+    where = f" on {status['monitor']}" if status["monitor"] else ""
+    lines.append(f"  indicator: {shown}{where}: {status['reason']}")
+    focus = status["focus"]
+    if focus["class"]:
+        verdict = f"BROWSER ({focus['match']})" if focus["match"] != "none" else "not a browser"
+        lines.append(f"  focus: {focus['class']}  {verdict}  monitor={focus['monitor'] or '?'}")
+    else:
+        lines.append("  focus: no window focused")
+    reading = status["reading"]
+    if reading is None:
+        lines.append("  vpn: no reading yet")
+    else:
+        lines.append(
+            f"  vpn: {reading['state'].upper()} ({reading['age_s']} s old): {reading['reason']}"
+        )
+        for route in reading["routes"]:
+            tag = " VPN" if route["vpn"] else ""
+            lines.append(
+                f"    IPv{route['family']}  {route['kind']:<11} {route['interface'] or '-'}{tag}"
+            )
+    fw, vw = status.get("focus_watcher", {}), status.get("vpn_watcher", {})
+    if fw:
+        lines.append(
+            f"  focus watcher: connected={fw.get('connected')} reconnects={fw.get('reconnects')}"
+        )
+    if vw:
+        lines.append(
+            f"  vpn watcher: up={vw.get('watcher_up')} last trigger={vw.get('last_trigger')!r}"
+        )
+    lines.append(f"  config: {status['config'] or 'built-in defaults'}")
+    return "\n".join(lines)
+
+
+def _status(args: argparse.Namespace) -> int:
+    reply = _ask_daemon("status")
+    if isinstance(reply, int):
+        return reply
+    status = {key: value for key, value in reply.items() if key != "ok"}
+    print(json.dumps(status, indent=2) if args.json else format_status(status))
+    return 0
+
+
+def _log(args: argparse.Namespace) -> int:
+    from collections import deque
+
+    from vpn_monitor.eventlog import EVENT_LOG, HUMAN_LOG, default_state_dir
+
+    path = default_state_dir() / (EVENT_LOG if args.events else HUMAN_LOG)
+    if not path.exists():
+        print(f"vpn-monitor: no log yet at {path}", file=sys.stderr)
+        return 1
+    if args.follow:  # pragma: no cover - replaces the process
+        os.execvp("tail", ["tail", "-n", str(LOG_TAIL_LINES), "-F", str(path)])
+    with path.open(encoding="utf-8", errors="replace") as handle:
+        sys.stdout.writelines(deque(handle, maxlen=LOG_TAIL_LINES))
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point. Returns the process exit code."""
     parser = build_parser()
@@ -436,5 +550,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _focus(args)
     if args.command == "preview":
         return _preview(args, raw)
-    print(f"vpn-monitor {args.command}: not implemented yet", file=sys.stderr)
-    return NOT_IMPLEMENTED_EXIT
+    if args.command == "run":
+        from vpn_monitor.daemon import run
+
+        return run(foreground=args.foreground, argv=raw, config_path=args.config)
+    if args.command in ("pause", "resume", "toggle"):
+        return _control(args.command)
+    if args.command == "status":
+        return _status(args)
+    if args.command == "log":
+        return _log(args)
+    parser.error(f"unknown command {args.command!r}")  # pragma: no cover - argparse rejects it
