@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from vpn_monitor import __version__
-from vpn_monitor.model import FocusEvent, VpnReading, VpnState
+from vpn_monitor.model import Decision, FocusEvent, Indicator, VpnReading, VpnState
 
 if TYPE_CHECKING:
     from vpn_monitor.browsers import BrowserMatcher
@@ -77,7 +77,35 @@ def build_parser() -> argparse.ArgumentParser:
         "--log", action="store_true", help="with --watch: also write focus changes to the event log"
     )
     focus.add_argument("--config", type=Path, help="config file (default: the usual location)")
+
+    preview = sub.add_parser(
+        "preview",
+        help="show the glow bar directly (no VPN or focus logic), for reviewing the look",
+        description="Draw the bar on one monitor: red, blue, or cycling red, blue, hidden every "
+        "2 s. Click-through like the real thing. Prints the draw counter on every fade and at "
+        "exit (0 draws after a fade means no idle redraws).",
+    )
+    preview.add_argument("mode", choices=PREVIEW_MODES, help="what to show")
+    preview.add_argument(
+        "--seconds", type=float, default=0.0, help="exit after N seconds (default: until Ctrl-C)"
+    )
+    preview.add_argument("--monitor", help="connector name (default: the focused monitor)")
+    preview.add_argument(
+        "--backdrop",
+        action="store_true",
+        help="also open a plain fullscreen window under the bar (neutral screenshots, fullscreen "
+        "check); it takes keyboard focus while open",
+    )
+    preview.add_argument(
+        "--log", action="store_true", help="also write overlay events to the event log"
+    )
+    preview.add_argument("--config", type=Path, help="config file (default: the usual location)")
     return parser
+
+
+PREVIEW_MODES = ("red", "blue", "cycle")
+PREVIEW_STEP_S = 2.0
+"""Seconds per step in ``preview cycle``."""
 
 
 def reading_to_dict(reading: VpnReading) -> dict[str, Any]:
@@ -272,10 +300,133 @@ def _focus_watch(args: argparse.Namespace, matcher: BrowserMatcher) -> int:  # p
     return 0
 
 
+def focused_monitor() -> str | None:
+    """Name of Hyprland's focused monitor, or ``None`` if Hyprland cannot say."""
+    from vpn_monitor.focus import HyprlandError, HyprlandNotRunning, socket_request
+
+    try:
+        data = json.loads(socket_request("j/monitors"))
+    except (OSError, ValueError, HyprlandError, HyprlandNotRunning):
+        return None
+    if not isinstance(data, list):
+        return None
+    for monitor in data:
+        if isinstance(monitor, dict) and monitor.get("focused") and monitor.get("name"):
+            return str(monitor["name"])
+    return None
+
+
+def preview_steps(mode: str) -> tuple[Indicator, ...]:
+    """The indicators ``preview`` shows, in order (``cycle`` repeats them)."""
+    if mode == "red":
+        return (Indicator.RED,)
+    if mode == "blue":
+        return (Indicator.BLUE,)
+    return (Indicator.RED, Indicator.BLUE, Indicator.HIDDEN)
+
+
+def _preview(args: argparse.Namespace, argv: Sequence[str]) -> int:  # pragma: no cover - live
+    from vpn_monitor.config import ConfigError, load_config
+    from vpn_monitor.overlay import ensure_layer_shell
+
+    try:
+        config = load_config(args.config)
+    except ConfigError as exc:
+        print(f"vpn-monitor: config error: {exc}", file=sys.stderr)
+        return CONFIG_ERROR_EXIT
+    ensure_layer_shell(argv)  # re-execs once with LD_PRELOAD; returns if already done
+
+    import signal
+
+    from gi.repository import GLib
+
+    from vpn_monitor.eventlog import EventLog
+    from vpn_monitor.overlay import GlowOverlay, GtkBackend
+
+    try:
+        backend = GtkBackend()
+    except RuntimeError as exc:
+        print(f"vpn-monitor: {exc}", file=sys.stderr)
+        return 1
+    monitor = args.monitor or focused_monitor() or min(backend.monitors(), default="")
+    if monitor not in backend.monitors():
+        known = ", ".join(sorted(backend.monitors())) or "none"
+        print(f"vpn-monitor: no monitor {monitor!r} (known: {known})", file=sys.stderr)
+        return 1
+    log = EventLog() if args.log else None
+    # Each settled fade is reported: the counter must not move between these lines while idle.
+    overlay = GlowOverlay(
+        config.appearance,
+        backend=backend,
+        log=log,
+        on_settled=lambda bar: report(f"fade finished ({bar.indicator.value})"),
+    )
+    loop: Any = GLib.MainLoop()
+    steps = preview_steps(args.mode)
+    started = time.monotonic()
+    backdrop = _open_backdrop(monitor) if args.backdrop else None
+
+    def report(label: str) -> None:
+        stats = overlay.stats()
+        print(
+            f"[{time.monotonic() - started:6.2f} s] {label}: draws {stats['draws']}, "
+            f"idle redraws {stats['idle_draws']}, animating {stats['animating']}",
+            flush=True,
+        )
+
+    def show(index: int) -> bool:
+        indicator = steps[index % len(steps)]
+        overlay.apply(Decision(indicator, monitor if indicator is not Indicator.HIDDEN else "", ""))
+        report(f"{indicator.value} on {monitor}")
+        if len(steps) > 1:
+            GLib.timeout_add(int(PREVIEW_STEP_S * 1000), show, index + 1)
+        return False
+
+    def quit_loop() -> bool:
+        loop.quit()
+        return False
+
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signum, quit_loop)
+    if args.seconds > 0:
+        GLib.timeout_add(int(args.seconds * 1000), quit_loop)
+    GLib.idle_add(show, 0)
+    try:
+        loop.run()
+    finally:
+        report("exit")
+        overlay.close()
+        if backdrop is not None:
+            backdrop.destroy()
+        if log is not None:
+            log.close()
+    return 0
+
+
+def _open_backdrop(monitor: str) -> Any:  # pragma: no cover - live
+    """A plain dark fullscreen toplevel on ``monitor`` (screenshots without personal content)."""
+    from gi.repository import Gdk, Gtk
+
+    display: Any = Gdk.Display.get_default()
+    model = display.get_monitors()
+    window: Any = Gtk.Window(title="vpn-monitor preview backdrop")
+    css: Any = Gtk.CssProvider()
+    css.load_from_string("window.vpm-backdrop { background: #1e1f22; }")
+    Gtk.StyleContext.add_provider_for_display(display, css, Gtk.STYLE_PROVIDER_PRIORITY_USER)
+    window.add_css_class("vpm-backdrop")
+    for i in range(model.get_n_items()):
+        gdk_monitor = model.get_item(i)
+        if gdk_monitor.get_connector() == monitor:
+            window.fullscreen_on_monitor(gdk_monitor)
+    window.present()
+    return window
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point. Returns the process exit code."""
     parser = build_parser()
-    args = parser.parse_args(argv)
+    raw = list(sys.argv[1:] if argv is None else argv)
+    args = parser.parse_args(raw)
     if args.command is None:
         parser.print_help()
         return 0
@@ -283,5 +434,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _probe(args)
     if args.command == "focus":
         return _focus(args)
+    if args.command == "preview":
+        return _preview(args, raw)
     print(f"vpn-monitor {args.command}: not implemented yet", file=sys.stderr)
     return NOT_IMPLEMENTED_EXIT
