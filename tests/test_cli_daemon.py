@@ -14,7 +14,7 @@ from vpn_monitor.cli import format_status, main
 from vpn_monitor.control import ControlError, DaemonNotRunning
 
 STATUS: dict[str, Any] = {
-    "version": "0.1.0",
+    "version": "1.0.0",
     "pid": 123,
     "uptime_s": 3725.0,
     "paused": False,
