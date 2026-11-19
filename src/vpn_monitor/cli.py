@@ -11,13 +11,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from vpn_monitor import __version__
-from vpn_monitor.model import VpnReading, VpnState
+from vpn_monitor.model import FocusEvent, VpnReading, VpnState
 
 if TYPE_CHECKING:
+    from vpn_monitor.browsers import BrowserMatcher
     from vpn_monitor.config import Config
 
 NOT_IMPLEMENTED_EXIT = 2
 CONFIG_ERROR_EXIT = 2
+HYPRLAND_EXIT = 2
 PROBE_EXIT = {VpnState.VPN: 0, VpnState.NO_VPN: 1, VpnState.UNKNOWN: 3}
 """``vpn-monitor probe`` exit codes: 0 VPN, 1 not through a VPN, 3 unknown."""
 
@@ -59,6 +61,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--log", action="store_true", help="with --watch: also write readings to the event log"
     )
     probe.add_argument("--config", type=Path, help="config file (default: the usual location)")
+
+    focus = sub.add_parser(
+        "focus",
+        help="show the focused window class and whether it is a browser (never titles)",
+        description="Print the focused window's class, the browser rule it matched and its "
+        "monitor. Window titles are never read or shown. Exit code: 0 a browser is focused, "
+        "1 something else (or nothing) is, 2 Hyprland is not running or the config is bad.",
+    )
+    focus.add_argument("--json", action="store_true", help="machine-readable output")
+    focus.add_argument(
+        "--watch", action="store_true", help="keep running and print every focus change"
+    )
+    focus.add_argument(
+        "--log", action="store_true", help="with --watch: also write focus changes to the event log"
+    )
+    focus.add_argument("--config", type=Path, help="config file (default: the usual location)")
     return parser
 
 
@@ -166,6 +184,94 @@ def _probe_watch(args: argparse.Namespace, config: Config) -> int:  # pragma: no
     return 0
 
 
+def focus_row(event: FocusEvent, matcher: BrowserMatcher) -> dict[str, Any]:
+    """JSON-friendly form of a focus event with the browser rule it matched (no title)."""
+    result = matcher.match(event.window_class)
+    return {
+        "class": event.window_class,
+        "browser": result.matched,
+        "rule": result.rule,
+        "monitor": event.monitor,
+        "fullscreen": event.fullscreen,
+    }
+
+
+def format_focus(row: dict[str, Any]) -> str:
+    """One human line for a focus row."""
+    if not row["class"]:
+        return "no window focused"
+    verdict = f"BROWSER ({row['rule']})" if row["browser"] else "not a browser"
+    fullscreen = "  fullscreen" if row["fullscreen"] else ""
+    return f"{row['class']}  {verdict}  monitor={row['monitor'] or '?'}{fullscreen}"
+
+
+def _focus(args: argparse.Namespace) -> int:
+    from vpn_monitor.browsers import BrowserMatcher
+    from vpn_monitor.config import ConfigError, load_config
+    from vpn_monitor.focus import HyprlandClient, HyprlandError, HyprlandNotRunning, locate_sockets
+
+    try:
+        config = load_config(args.config)
+        matcher = BrowserMatcher(config.browsers.classes, config.browsers.patterns)
+        locate_sockets()
+    except ConfigError as exc:
+        print(f"vpn-monitor: config error: {exc}", file=sys.stderr)
+        return CONFIG_ERROR_EXIT
+    except HyprlandNotRunning as exc:
+        print(f"vpn-monitor: {exc}", file=sys.stderr)
+        return HYPRLAND_EXIT
+    if args.watch:
+        return _focus_watch(args, matcher)
+    try:
+        event = HyprlandClient().active_focus()
+    except (OSError, HyprlandError, HyprlandNotRunning) as exc:
+        print(f"vpn-monitor: cannot read the focused window: {exc}", file=sys.stderr)
+        return HYPRLAND_EXIT
+    row = focus_row(event, matcher)
+    print(json.dumps(row) if args.json else format_focus(row))
+    return 0 if row["browser"] else 1
+
+
+def _focus_watch(args: argparse.Namespace, matcher: BrowserMatcher) -> int:  # pragma: no cover
+    import signal
+
+    from gi.repository import GLib
+
+    from vpn_monitor.eventlog import EventLog
+    from vpn_monitor.focus import FocusWatcher
+    from vpn_monitor.mainloop import GLibScheduler
+
+    log = EventLog() if args.log else None
+    loop: Any = GLib.MainLoop()
+
+    def on_focus(event: FocusEvent) -> None:
+        row = focus_row(event, matcher)
+        latency = watcher.last_latency_s
+        stamp = time.strftime("%H:%M:%S")
+        if args.json:
+            row.update(time=stamp, latency_ms=None if latency is None else latency * 1000)
+            print(json.dumps(row), flush=True)
+            return
+        extra = f"  ({latency * 1000:.1f} ms)" if latency is not None else ""
+        print(f"[{stamp}] {format_focus(row)}{extra}", flush=True)
+
+    def quit_loop() -> bool:
+        loop.quit()
+        return False
+
+    watcher = FocusWatcher(GLibScheduler(), log=log)
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signum, quit_loop)
+    watcher.start(on_focus)
+    try:
+        loop.run()
+    finally:
+        watcher.stop()
+        if log is not None:
+            log.close()
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point. Returns the process exit code."""
     parser = build_parser()
@@ -175,5 +281,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
     if args.command == "probe":
         return _probe(args)
+    if args.command == "focus":
+        return _focus(args)
     print(f"vpn-monitor {args.command}: not implemented yet", file=sys.stderr)
     return NOT_IMPLEMENTED_EXIT

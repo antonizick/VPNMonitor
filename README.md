@@ -19,7 +19,7 @@ Hyprland's event socket reports which window has focus (window **class** only, n
 - `uv` for development only
 
 ## Development
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup (`uv venv --system-site-packages && uv sync`) and the quality gates. Architecture: [docs/VPM_ARCHITECTURE.md](docs/VPM_ARCHITECTURE.md). Daemon commands exist as stubs (exit status 2, "not implemented yet") until Phase 07. `vpn-monitor probe` works now: it checks the routes once and explains the verdict (`--json`, or `--watch` to follow changes live).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup (`uv venv --system-site-packages && uv sync`) and the quality gates. Architecture: [docs/VPM_ARCHITECTURE.md](docs/VPM_ARCHITECTURE.md). Daemon commands exist as stubs (exit status 2, "not implemented yet") until Phase 07. `vpn-monitor probe` works now: it checks the routes once and explains the verdict (`--json`, or `--watch` to follow changes live). So does `vpn-monitor focus`: it prints the focused window's class, whether it counts as a browser (and by which rule) and its monitor, never the title (`--watch` follows focus changes live). To make another app count as a browser, run `vpn-monitor focus` while it is focused to read its class, then add that class to `browsers.classes` (exact) or a regex to `browsers.patterns` in the config.
 
 ## Planned commands
 ```

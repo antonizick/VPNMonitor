@@ -1,13 +1,13 @@
 # VPM: Architecture
 
-Status as of Phase 03 (2026-11-18 22:29 CST): types, fakes, the pure engine, browser matcher, config and event log are built; every module marked *stub* raises `NotImplementedError` until the phase named. Keep this file in sync as phases land.
+Status as of Phase 05 (2026-11-19 08:37 CST): types, fakes, the pure engine, browser matcher, config and event log are built; every module marked *stub* raises `NotImplementedError` until the phase named. Keep this file in sync as phases land.
 
 ## Components
 
 ```mermaid
 flowchart LR
     subgraph inputs
-        F[focus.py<br/>Hyprland socket2<br/>stub, Phase 05]
+        F[focus.py<br/>Hyprland socket2 watcher]
         V[vpn.py<br/>route probe + ip monitor watcher]
         C[control.py<br/>Unix socket: pause/resume/status<br/>stub, Phase 07]
     end
@@ -81,6 +81,19 @@ Rules, first match wins:
 Monitor: the focused window's monitor; if empty or not in the monitor list, the monitor flagged focused, else the first known one. A HIDDEN decision has `monitor == ""`. Rows 6–12 all go through `reading_problem()`, the single gate for blue. Invariant, tested over every combination of inputs and 200 random event sequences: **BLUE ⇒ browser focused ∧ not paused ∧ fresh, route-consistent `VPN` reading** (spec S6). Red is never delayed.
 
 `Decision.inputs` (flat `str -> str`): `class`, `match` (`exact:<class>`, `regex:<pattern>` or `none`), `monitor`, `fullscreen`, `paused`, `vpn_state` (`vpn`/`no_vpn`/`unknown`/`none`), `reading_age_s`, `routes` (e.g. `v4 proton0 routed vpn; v6 ipv6leakintrf0 blocked`), `reading_reason`.
+
+## Focus watcher (`focus.py`, ADR-0016)
+`FocusWatcher(scheduler, spawner=…, query=…, clock=…, log=…)` is the daemon's `FocusSource`. `start` delivers "no focus" (`FocusEvent("", "", "")`, the engine hides the bar), connects to `.socket2.sock`, reads the initial state and delivers it. Hyprland's socket paths come from `$XDG_RUNTIME_DIR/hypr/$HYPRLAND_INSTANCE_SIGNATURE`, else the newest live instance there (`locate_sockets`; `HyprlandNotRunning` if none). Events are read through `Scheduler.watch_fd`, split on newlines (a line over 64 KiB is discarded, never buffered), parsed by `parse_event_line`, and a burst that contains any relevant event triggers **one** `j/activewindow` request. A `FocusEvent` is delivered only when it differs from the last one. Stream closed or unreadable: "no focus" at once, reconnect after 0.1 s doubling to 5 s (reset after a 10 s connection), initial state re-read on success. A failed request also hides the bar and reconnects. Errors are logged once per distinct reason; every focus change is logged as a `focus` event (class, monitor, fullscreen, trigger, never a title).
+
+| Event | Used for |
+|---|---|
+| `activewindow>>class,title` | refresh trigger; only the text before the first comma is kept, the title is dropped in the parser |
+| `activewindowv2>>address` | refresh trigger (address gets its `0x` prefix) |
+| `focusedmon`, `focusedmonv2`, `fullscreen`, `closewindow`, `movewindow`, `movewindowv2` | refresh trigger |
+| `monitoradded`, `monitoraddedv2`, `monitorremoved`, `monitorremovedv2` | refresh trigger, and the monitor id → name table is dropped |
+| `windowtitle`, `windowtitlev2`, `openwindow`, everything else | name only; no data kept, no refresh |
+
+The request side (`HyprlandClient`) asks `j/activewindow` and `j/monitors` (id → name, cached) over `.socket.sock`. Only `class`, `address`, `monitor` and `fullscreen` (bit 2 of the mode) are read; `title` and `initialTitle` are never copied. `vpn-monitor focus [--watch] [--json] [--log]` prints class, matched rule and monitor (exit 0 browser, 1 other, 2 no Hyprland or bad config). Observed classes are in `tests/fixtures/focus/classes.json`.
 
 ## Browser matcher (`browsers.py`, ADR-0004)
 `BrowserMatcher(classes, patterns).match(cls) -> MatchResult(matched, rule)`. Exact classes are case-sensitive; patterns are regexes matched with `re.fullmatch`. Defaults: the full browsers in `DEFAULT_CLASSES` plus `^(brave|chrome|chromium|msedge)-.+__.*$` for Omarchy web apps (Chromium-family `--app` windows such as `brave-basecamp.com__-Default`).

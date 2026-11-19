@@ -1,0 +1,11 @@
+{
+  "_note": "Window classes only (never titles). 'observed' were read with `vpn-monitor focus` / j/clients on the reference machine on 2026-11-19; 'expected' follow Chromium's documented --app naming and have not been observed here.",
+  "observed": {
+    "browser": ["brave-browser", "brave-maps.google.com__-Default"],
+    "not_browser": ["foot", "md.obsidian.Obsidian", "proton.vpn.app.gtk", "Lucent-desktop"]
+  },
+  "expected": {
+    "browser": ["chromium", "chrome-app.hey.com__-Default", "chrome-youtube.com__-Default"],
+    "not_browser": ["org.keepassxc.KeePassXC", "mpv", "imv"]
+  }
+}

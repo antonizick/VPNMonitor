@@ -27,4 +27,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - `vpn-monitor probe` (`--json`, `--watch`, `--log`, `--config`): check and explain the VPN routes from the command line.
 - `mainloop.py` (`Scheduler` Protocol, `GLibScheduler`) and `fakes.FakeScheduler` for timer/fd-driven modules.
 - Route fixtures in `tests/fixtures/routes/` (recorded on the reference machine and synthesised, sanitised; a test rejects public addresses, MACs and SSIDs).
+- Hyprland focus watcher (`focus.py`): `FocusWatcher` (the daemon's `FocusSource`) reads socket2 events, resolves focus with one `j/activewindow` per event batch, delivers only changes, shows "no focus" while disconnected and reconnects with 0.1 s to 5 s back-off, re-reading the initial state (ADR-0016). Window titles are dropped in the parser (spec S1).
+- `vpn-monitor focus [--watch] [--json] [--log]`: print the focused window's class, matched browser rule, monitor and the event-to-delivery latency (never titles).
+- Focus fixtures `tests/fixtures/focus/` (observed window classes, a synthetic socket2 stream with hostile titles); observed latency 2 to 7 ms.
 - Tests: matcher, config validation, engine truth table, staleness, hysteresis, monitors, exhaustive and randomised S6 invariant checks, event-log schema and rotation (510 tests, 100 % coverage of engine, matcher, config and event log).

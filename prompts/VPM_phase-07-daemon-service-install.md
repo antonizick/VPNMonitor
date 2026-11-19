@@ -9,6 +9,8 @@
 `vpn-monitor` runs at login as a systemd user service that wires focus + VPN into the engine and overlay, can be paused/resumed from a keybinding and the CLI, and installs and uninstalls cleanly, documented in the OSMods log.
 
 ## Tasks
+> **Notes from Phase 05:** build the focus side with `FocusWatcher(GLibScheduler(), log=log)` and `start(callback)`; it delivers `FocusEvent("", "", "")` first (hide), then the initial state, and again "no focus" while Hyprland's socket is down. It never raises when Hyprland is not up yet (it retries with back-off and logs once). `vpn-monitor status` can show `watcher.last_focus`, `watcher.connected` and `watcher.reconnects`. The `vpn-monitor focus` CLI (`focus_row`, `format_focus` in `cli.py`) is the model for the "focused class + match" line.
+
 1. `daemon.py`: build config → eventlog → engine → overlay; start focus watcher and VPN watcher on the GLib main loop; feed engine; tell the VPN watcher when a browser is focused (periodic re-check only then); apply decisions to the overlay; SIGTERM/SIGINT shut down cleanly (bar hidden); config reload on SIGHUP.
 2. `control.py`: Unix socket `$XDG_RUNTIME_DIR/vpn-monitor/control.sock` (dir 0700, socket 0600, `SO_PEERCRED` uid check), line-based JSON commands `pause`, `resume`, `toggle`, `status`; anything else rejected and logged (S5). Single-instance guard (a second `run` exits with a clear message).
 3. CLI: `run [--foreground]`, `pause`, `resume`, `toggle`, `status [--json]` (paused?, focused class + match, current reading with per-family reasons, indicator, uptime), `log [-f] [--events]`. `pause`/`resume` send a `notify-send` notification ("VPN Monitor paused" / "resumed").

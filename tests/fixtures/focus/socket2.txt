@@ -1,0 +1,15 @@
+workspace>>4
+focusedmon>>HDMI-A-1,4
+activewindow>>foot,Some title, with commas >> and arrows
+activewindowv2>>55ce54548430
+fullscreen>>1
+activewindow>>brave-browser,Tab one - Brave
+activewindowv2>>55ce5378a830
+windowtitle>>55ce5378a830
+windowtitlev2>>55ce5378a830,Secret, title
+openwindow>>55ce54548430,5,foot,Top secret, window
+closewindow>>55ce54548430
+activewindow>>,
+activewindowv2>>,
+monitoraddedv2>>2,HDMI-A-1,Some Monitor
+monitorremoved>>HDMI-A-1
