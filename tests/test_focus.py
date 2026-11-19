@@ -411,6 +411,45 @@ def test_irrelevant_events_do_not_query() -> None:
     assert rig.query.calls == before
 
 
+def test_title_updates_of_the_focused_window_do_not_query() -> None:
+    """Hyprland re-sends activewindow(v2) on every title change; that is not a focus change."""
+    rig = Rig(FakeQuery(FOOT))
+    rig.start()
+    before = rig.query.calls
+    for _ in range(5):  # a terminal updating its title once a second
+        rig.deliver("windowtitle>>2\nwindowtitlev2>>2,t\nactivewindow>>foot,t\nactivewindowv2>>2\n")
+    assert rig.query.calls == before
+    assert rig.events[-1] == FOOT
+
+
+def test_same_class_other_window_still_queries() -> None:
+    other_brave = FocusEvent("brave-browser", "0x9", "DP-1")
+    rig = Rig(FakeQuery(BRAVE, other_brave))
+    rig.start()
+    before = rig.query.calls
+    rig.deliver("activewindow>>brave-browser,t\nactivewindowv2>>9\n")  # new address
+    assert rig.query.calls == before + 1
+    assert rig.events[-1] == other_brave
+
+
+def test_repeated_focus_with_monitor_or_fullscreen_event_still_queries() -> None:
+    moved = FocusEvent("foot", "0x2", "DP-1", fullscreen=True)
+    rig = Rig(FakeQuery(FOOT, moved))
+    rig.start()
+    before = rig.query.calls
+    rig.deliver("activewindowv2>>2\nfullscreen>>1\n")
+    assert rig.query.calls == before + 1
+    assert rig.events[-1] == moved
+
+
+def test_repeat_check_needs_a_delivered_window() -> None:
+    rig = Rig(FakeQuery(FocusEvent("", "", ""), FOOT))
+    rig.start()  # nothing focused yet: no address to compare with
+    before = rig.query.calls
+    rig.deliver("activewindowv2>>2\n")
+    assert rig.query.calls == before + 1
+
+
 def test_partial_lines_are_buffered_until_complete() -> None:
     rig = Rig(FakeQuery(BRAVE, FOOT))
     rig.start()

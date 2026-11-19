@@ -293,7 +293,8 @@ _SCHEMA: dict[str, tuple[type[Any], dict[str, Validator]]] = {
 
 # Every dataclass field must have a validator, and vice versa (checked once at import).
 for _name, (_cls, _validators) in _SCHEMA.items():
-    assert {f.name for f in fields(_cls)} == set(_validators), _name
+    if {f.name for f in fields(_cls)} != set(_validators):  # pragma: no cover - a coding error
+        raise RuntimeError(f"config schema out of sync for [{_name}]")
 
 
 # ---------------------------------------------------------------------------------------------

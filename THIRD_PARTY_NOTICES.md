@@ -11,8 +11,21 @@ Licences below were read from the installed packages with `pacman -Qi` on 2026-1
 | PyGObject (`python-gobject`) | 3.58.1-1 | LGPL-2.1-or-later | https://pygobject.gnome.org/ | Python bindings for GTK4 |
 | pycairo (`python-cairo`) | 1.29.2-1 | LGPL-2.1 OR MPL-1.1 | https://pycairo.readthedocs.io/ | Drawing the bar and the empty input region (added Phase 06) |
 
+## Programs run at runtime (not linked, not bundled)
+Added in the Phase 08 licence audit (2026-11-19 10:00 CST, versions and licences from `pacman -Qi`). VPN Monitor starts these as separate processes with a fixed argument list; running a program does not combine its licence with ours.
+
+| Program | Package (version) | Licence | Use |
+|---|---|---|---|
+| `ip` | `iproute2` 7.3.0-1 | GPL-2.0-or-later | Route lookups, link kinds, change events (detector) |
+| Hyprland IPC sockets | `hyprland` 0.56.2-4 | BSD-3-Clause | Focus and monitor events (socket protocol only, no code used) |
+| `notify-send` | `libnotify` 0.8.9-1 | LGPL-2.1-or-later | Pause/resume notification (CLI only) |
+| `pw-play` / `paplay` / `aplay` (first found) | `pipewire` 1:1.6.9-1 (MIT, LGPL-2.1-or-later), `alsa-utils` 1.2.16-1 (GPL-2.0-or-later) | as listed | Pause/resume sound cue (CLI only) |
+| `python3` | `python` 3.14.8-1 | PSF-2.0 | Interpreter |
+
+The system libraries in the table above were re-checked on 2026-11-19 10:00 CST: versions and licences unchanged.
+
 ## Development-only tools
-Development tools (uv, pytest, ruff, mypy, pre-commit, gitleaks) are used on the developer's machine and in CI only. They are not distributed with the project. They are added here, with their licences, when Phase 02 pins them.
+Development tools (uv, pytest, ruff, mypy, pre-commit, gitleaks) are used on the developer's machine and in CI only. They are not distributed with the project. Their licences are in the table below (re-checked against `uv.lock` in Phase 08: 15 packages, all listed, no change). Scanners used in Phase 08 (`bandit`, `shellcheck`, `gitleaks`, `uv audit`) run from the developer's own installation and are not project dependencies.
 
 ## Keeping this file accurate
 Check licences before adding any dependency (see `CLAUDE.md`), and update this table in the same change.

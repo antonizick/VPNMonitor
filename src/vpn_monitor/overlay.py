@@ -588,7 +588,7 @@ def ensure_layer_shell(argv: Sequence[str]) -> None:  # pragma: no cover - repla
     command = preload_command(argv, dict(os.environ), find_layer_shell_lib())
     if command is not None:
         args, env = command
-        os.execve(sys.executable, args, env)
+        os.execve(sys.executable, args, env)  # noqa: S606 - re-exec of ourselves, fixed argv
 
 
 # ---------------------------------------------------------------------------------------------

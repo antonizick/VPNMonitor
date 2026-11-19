@@ -30,7 +30,6 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import Enum
@@ -39,6 +38,7 @@ from typing import IO, TYPE_CHECKING, Literal, Protocol
 
 from vpn_monitor.config import Config, ProbesConfig, VpnConfig
 from vpn_monitor.engine import describe_routes
+from vpn_monitor.mainloop import boot_clock
 from vpn_monitor.model import FamilyRoute, RouteKind, VpnCallback, VpnReading, VpnState
 
 if TYPE_CHECKING:
@@ -108,7 +108,7 @@ Runner = Callable[[Sequence[str], float], CommandResult]
 
 def run_command(argv: Sequence[str], timeout_s: float) -> CommandResult:
     """Run ``argv`` (no shell) with a timeout and the C locale."""
-    completed = subprocess.run(
+    completed = subprocess.run(  # noqa: S603 - fixed `ip` argv built in this module, no shell
         list(argv),
         capture_output=True,
         text=True,
@@ -325,7 +325,7 @@ class RouteProbe:
         probes: ProbesConfig,
         *,
         runner: Runner = run_command,
-        clock: Clock = time.monotonic,
+        clock: Clock = boot_clock,
         classifier: LinkClassifier | None = None,
     ) -> None:
         self._families: tuple[tuple[Family, str], ...] = ((4, probes.ipv4), (6, probes.ipv6))
@@ -341,7 +341,7 @@ class RouteProbe:
 
     @classmethod
     def from_config(
-        cls, config: Config, *, runner: Runner = run_command, clock: Clock = time.monotonic
+        cls, config: Config, *, runner: Runner = run_command, clock: Clock = boot_clock
     ) -> RouteProbe:
         return cls(config.vpn, config.probes, runner=runner, clock=clock)
 
@@ -403,7 +403,7 @@ class IpMonitorStream:
     ARGV = ("ip", "monitor", "route", "rule", "link")
 
     def __init__(self) -> None:
-        self._proc = subprocess.Popen(
+        self._proc = subprocess.Popen(  # noqa: S603 - fixed argv (ARGV), no shell
             self.ARGV,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -411,7 +411,8 @@ class IpMonitorStream:
             env=_c_env(),
         )
         stdout: IO[bytes] | None = self._proc.stdout
-        assert stdout is not None
+        if stdout is None:  # pragma: no cover - stdout=PIPE always gives a pipe
+            raise RuntimeError("ip monitor started without a stdout pipe")
         self._stdout = stdout
         os.set_blocking(stdout.fileno(), False)
         self._closed = False
@@ -468,7 +469,7 @@ class RouteWatcher:
         *,
         probe: RouteProbe | None = None,
         spawner: Spawner = IpMonitorStream,
-        clock: Clock = time.monotonic,
+        clock: Clock = boot_clock,
         log: EventLog | None = None,
     ) -> None:
         self._config = config

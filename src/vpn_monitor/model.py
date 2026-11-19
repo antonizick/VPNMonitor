@@ -103,7 +103,7 @@ class VpnReading:
     reason: str
     """Human-readable why, for the log (spec R11). Never contains window titles."""
     timestamp: float
-    """Monotonic seconds when the reading was taken (injected clock, never read in the engine)."""
+    """When the reading was taken: injected ``boot_clock`` seconds (counts suspend; ADR-0019)."""
 
 
 def reading_to_dict(reading: VpnReading) -> dict[str, Any]:

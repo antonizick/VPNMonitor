@@ -18,7 +18,6 @@ from __future__ import annotations
 import os
 import signal
 import sys
-import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -27,7 +26,7 @@ from vpn_monitor.config import Config, ConfigError, load_config
 from vpn_monitor.control import AlreadyRunning, ControlServer, InstanceLock
 from vpn_monitor.engine import Engine
 from vpn_monitor.eventlog import EventLog
-from vpn_monitor.mainloop import Handle, Scheduler
+from vpn_monitor.mainloop import Handle, Scheduler, boot_clock
 from vpn_monitor.model import (
     Decision,
     FocusEvent,
@@ -62,7 +61,7 @@ class Daemon:
         sink: IndicatorSink,
         scheduler: Scheduler,
         log: EventLog,
-        clock: Callable[[], float] = time.monotonic,
+        clock: Callable[[], float] = boot_clock,
         sink_factory: SinkFactory | None = None,
         config_loader: ConfigLoader | None = None,
         on_stop: Callable[[], None] | None = None,
@@ -98,6 +97,8 @@ class Daemon:
             reason=f"vpn-monitor {__version__} started",
             inputs={"config": source, "pid": str(os.getpid())},
         )
+        if self._log.degraded is not None:  # keep running: a broken log must not stop the bar
+            self._log.error("log_degraded", f"logging to stderr: {self._log.degraded}")
         for warning in self._config.warnings:
             self._log.record("config_warning", reason=warning)
         try:
@@ -384,15 +385,15 @@ def run(  # pragma: no cover - live
 
         def stop(name: str) -> Callable[[], bool]:
             def handler() -> bool:
-                assert daemon is not None
-                daemon.request_stop(f"{name} received")
+                if daemon is not None:
+                    daemon.request_stop(f"{name} received")
                 return False
 
             return handler
 
         def hangup() -> bool:
-            assert daemon is not None
-            daemon.reload()
+            if daemon is not None:
+                daemon.reload()
             return True
 
         for signum, name in ((signal.SIGTERM, "SIGTERM"), (signal.SIGINT, "SIGINT")):

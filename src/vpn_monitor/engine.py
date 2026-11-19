@@ -1,8 +1,9 @@
 """Pure state engine: focus + VPN reading + pause + clock -> one Decision (spec R2, R4, S6).
 
 No I/O and no direct clock access. Time is injected: the constructor takes a ``clock`` callable
-(``time.monotonic`` in the daemon, a fake in tests), and ``tick(now)`` lets the caller advance time
-explicitly. ``VpnReading.timestamp`` must come from the same monotonic clock.
+(``mainloop.boot_clock``, which keeps counting through suspend, in the daemon; a fake in tests),
+and ``tick(now)`` lets the caller advance time explicitly. ``VpnReading.timestamp`` must come from
+the same clock (ADR-0019).
 
 There is one current :class:`Decision`. It names the monitor that shows the bar (the focused
 window's monitor, spec R6), and every other monitor shows nothing. Every ``on_*`` method and
@@ -148,7 +149,7 @@ class Engine:
         return self._paused
 
     def next_deadline(self) -> float | None:
-        """Monotonic time at which :meth:`tick` may change the Decision, or ``None``.
+        """Clock time at which :meth:`tick` may change the Decision, or ``None``.
 
         The daemon schedules one timer for it: when a pending blue confirmation completes, or
         when a fresh reading goes stale. ``None`` while no bar is shown, so nothing is scheduled

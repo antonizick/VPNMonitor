@@ -472,12 +472,31 @@ class FocusWatcher:
         refresh = False
         for event in self._split(data):
             self.events_seen += 1
-            refresh = refresh or event.refresh
+            refresh = refresh or (event.refresh and not self._repeats_focus(event))
             if event.name in _MONITOR_EVENTS:
                 self._query.invalidate_monitors()
         if refresh and not self._refresh("event", received):
             return self._died("cannot read the active window; reconnecting")
         return True
+
+    def _repeats_focus(self, event: HyprEvent) -> bool:
+        """True for an ``activewindow``/``activewindowv2`` that names the window already delivered.
+
+        Hyprland re-sends both whenever the focused window's **title** changes (a terminal or a
+        page updating its title about once a second), although focus did not move. Asking
+        ``j/activewindow`` for each of those was the whole idle cost measured in Phase 08. A real
+        focus change always brings a v2 event with a different address; monitor and fullscreen
+        changes come with their own events (``movewindow``, ``focusedmon``, ``fullscreen``), which
+        still refresh.
+        """
+        last = self._last
+        if last is None or not last.address:
+            return False
+        if event.name == "activewindowv2":
+            return event.address == last.address
+        if event.name == "activewindow":
+            return event.window_class == last.window_class
+        return False
 
     def _died(self, reason: str) -> bool:
         """The stream is unusable: hide the bar, schedule a reconnect. Returns False (no watch)."""

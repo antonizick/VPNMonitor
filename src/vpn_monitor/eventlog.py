@@ -17,6 +17,11 @@ JSONL schema, one object per line (``docs/VPM_ARCHITECTURE.md``, ADR-0014)::
                 "reading_age_s": "12.004", "routes": "v4 proton0 routed vpn; v6 - blocked",
                 "reading_reason": "…"}}
 
+Faults (spec R4: a broken log must never stop the indicator): if the directory or a file cannot
+be opened, that log falls back to stderr (the service journal) and :attr:`EventLog.degraded`
+says why; a failing write (disk full) is reported once on stderr and never raised. Files are
+created mode 0600.
+
 ``inputs`` is a flat ``str -> str`` map. A window **title** never appears (S1): no type carries
 one, and :class:`TitleGuard` lets tests (and later phases) assert it by raising on any record
 whose text contains a registered title.
@@ -27,6 +32,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 from collections.abc import Callable, Iterable, Mapping
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
@@ -83,6 +89,29 @@ def _strings(value: object) -> Iterable[str]:
             yield from _strings(item)
 
 
+class _PrivateRotatingFileHandler(RotatingFileHandler):
+    """Creates its files 0600 and reports a failing write once on stderr instead of raising."""
+
+    def __init__(self, filename: Path, **kwargs: Any) -> None:
+        self.write_failed = False
+        super().__init__(filename, **kwargs)
+
+    def _open(self) -> Any:
+        fd = os.open(self.baseFilename, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+        return open(fd, self.mode, encoding=self.encoding, errors=self.errors)
+
+    def handleError(self, record: logging.LogRecord) -> None:
+        if not self.write_failed:
+            self.write_failed = True
+            error = sys.exc_info()[1]
+            name = type(error).__name__ if error is not None else "error"
+            print(
+                f"vpn-monitor: cannot write {self.baseFilename} ({name}: {error}); "
+                "further write errors are not reported",
+                file=sys.stderr,
+            )
+
+
 def default_state_dir(env: Mapping[str, str] | None = None) -> Path:
     """``$XDG_STATE_HOME/vpn-monitor``, default ``~/.local/state/vpn-monitor``."""
     env = os.environ if env is None else env
@@ -116,8 +145,13 @@ class EventLog:
         wall_clock: WallClock = _local_now,
     ) -> None:
         self.state_dir = default_state_dir() if state_dir is None else state_dir
-        self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        os.chmod(self.state_dir, 0o700)
+        self.degraded: str | None = None
+        """Why a log fell back to stderr, or ``None`` when both files are open."""
+        try:
+            self.state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            os.chmod(self.state_dir, 0o700)
+        except OSError as exc:
+            self.degraded = f"log directory {self.state_dir}: {type(exc).__name__}: {exc}"
         self._guard = guard
         self._wall_clock = wall_clock
         self._closed = False
@@ -127,12 +161,16 @@ class EventLog:
         self._events = self._logger(f"{tag}.events", EVENT_LOG, max_bytes, backup_count)
 
     def _logger(self, name: str, filename: str, max_bytes: int, backups: int) -> logging.Logger:
-        handler = RotatingFileHandler(
-            self.state_dir / filename,
-            maxBytes=max_bytes,
-            backupCount=backups,
-            encoding="utf-8",
-        )
+        handler: logging.Handler
+        try:
+            path = self.state_dir / filename
+            handler = _PrivateRotatingFileHandler(
+                path, maxBytes=max_bytes, backupCount=backups, encoding="utf-8"
+            )
+            os.chmod(path, 0o600)  # files from before 0600 creation was added
+        except OSError as exc:
+            self.degraded = self.degraded or f"{filename}: {type(exc).__name__}: {exc}"
+            handler = logging.StreamHandler(sys.stderr)
         handler.setFormatter(logging.Formatter("%(message)s"))
         logger = logging.getLogger(name)
         logger.handlers[:] = [handler]
