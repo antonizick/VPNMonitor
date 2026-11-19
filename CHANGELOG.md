@@ -4,7 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Security
+- Staleness now counts time spent suspended (`CLOCK_BOOTTIME`): a VPN reading taken before a suspend is stale on resume, so the bar cannot stay blue across a sleep on stale data (ADR-0019).
+- Log files are created mode 0600, and existing ones are tightened at start.
+- ruff's bandit (`S`) rules are part of the lint gate; `assert`s in the package became explicit checks.
+- `docs/VPM_THREAT_MODEL.md`: assets, false-blue failure modes, privacy and local attackers, each mapped to a test or mitigation; scanner results.
+
 ### Fixed
+- An unwritable log directory or log file crashed the daemon at start (the service restart-looped with no bar); the log now falls back to stderr (the journal), logs `log_degraded` and the indicator keeps working. A failing write (disk full) is reported once instead of on every event.
+- Idle CPU: a focused window whose title changes often (a terminal) made the focus watcher ask Hyprland for the active window on every title change; those repeats are now skipped (idle 0.21 % CPU and 2.3 wake-ups/s → 0.057 % and 0.73/s).
 - Probes took 300 to 400 ms inside the daemon (a red bar for about 0.3 s every time a browser gained focus) because child `ip` processes inherited the daemon's `LD_PRELOAD=libgtk4-layer-shell.so`; the layer-shell preload is now dropped from their environment (20 ms probes, reading age at start 6 ms).
 
 ### Changed
@@ -12,6 +20,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - `vpn.leak_guard_interfaces` now defaults to ProtonVPN's kill-switch names `ipv6leakintrf*`, `pvpnksintrf*`, `pvpnrouteintrf*` (was `ipv6leakintrf0`).
 
 ### Added
+- End-to-end fault-injection tests (`tests/test_fault_injection.py`): `ip` hangs or is missing, `ip monitor` dies, Hyprland's socket closes mid-line, surface creation fails, read-only log directory, disk full, suspend, wall-clock jumps; each ends red or hidden and is logged.
+- README performance table (measured), future work, and more honest limits; THIRD_PARTY_NOTICES lists the programs run at runtime.
 - The daemon (`daemon.py`): focus + VPN sources → engine → overlay on the GLib main loop, one deadline timer so a stuck VPN watcher turns blue into red, fail-safe to red on any callback or engine error, clean shutdown on SIGTERM/SIGINT, config reload on SIGHUP (ADR-0018).
 - Control socket (`control.py`): `$XDG_RUNTIME_DIR/vpn-monitor/control.sock` (0700/0600, `SO_PEERCRED` uid check, one JSON line, fixed command set), single-instance `flock`, and the CLI `run`, `pause`, `resume`, `toggle` (desktop notifications), `status [--json]` and `log [-f] [--events]` (spec AM-3).
 - `packaging/systemd/vpn-monitor.service`: sandboxed user unit (`RestrictAddressFamilies=AF_UNIX AF_NETLINK`, `ProtectSystem=strict`, … exposure 1.6 OK).
