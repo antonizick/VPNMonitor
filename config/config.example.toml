@@ -65,6 +65,10 @@ fade_ms = 150
 [pause]
 # Resume automatically after this many minutes. 0 = stay paused until resumed or the next login.
 auto_resume_minutes = 0
+# Soft audio cue when you pause (falling) or resume (rising), played by `vpn-monitor pause|resume|toggle`.
+sound = true
+# 0 to 100; 30 is quiet.
+sound_volume = 30
 
 [log]
 # Rotate each log file (vpn-monitor.log, events.jsonl) at this size, keeping this many old files.

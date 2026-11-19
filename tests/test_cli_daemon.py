@@ -244,3 +244,33 @@ def test_notify_never_raises(monkeypatch: pytest.MonkeyPatch, error: Exception) 
 
     monkeypatch.setattr(subprocess, "run", broken)
     cli.notify("anything")
+
+
+def test_cue_respects_the_sound_setting(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    from vpn_monitor import sound
+
+    played: list[tuple[str, int]] = []
+    monkeypatch.setattr(sound, "play", lambda name, vol, **_: played.append((name, vol)) or True)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    cli.cue("pause")
+    cfg = tmp_path / "vpn-monitor"
+    cfg.mkdir()
+    (cfg / "config.toml").write_text("[pause]\nsound = false\n")
+    cli.cue("resume")
+    (cfg / "config.toml").write_text("[pause]\nsound_volume = 55\n")
+    cli.cue("resume")
+    (cfg / "config.toml").write_text("[pause]\nsound_volume = 'loud'\n")  # bad: defaults
+    cli.cue("pause")
+    assert played == [("pause", 30), ("resume", 55), ("pause", 30)]
+
+
+def test_pause_and_resume_play_their_cues(
+    monkeypatch: pytest.MonkeyPatch, notes: list[str]
+) -> None:
+    heard: list[str] = []
+    monkeypatch.setattr(cli, "cue", heard.append)
+    talk(monkeypatch, {"ok": True, "paused": True})
+    main(["toggle"])
+    talk(monkeypatch, {"ok": True, "paused": False})
+    main(["toggle"])
+    assert heard == ["pause", "resume"]

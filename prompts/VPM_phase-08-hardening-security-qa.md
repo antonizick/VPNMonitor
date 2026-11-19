@@ -39,3 +39,13 @@ New fault-injection and threat-model tests; full suite green; coverage report re
 - Overlay memory: RSS counts shared GTK libraries; report PSS (`/proc/<pid>/smaps_rollup`) next to RSS against R13's 80 MB. Phase 06 measured RSS 105 MB / PSS 58 MB with the cairo renderer (154 MB RSS with GTK's GPU renderer, which is why cairo is the default).
 - `vpn-monitor preview blue --seconds 600` prints the draw counter; idle redraws must stay 0. `strace` and `pidstat` are not installed on the reference machine; `/proc/<pid>/stat` ticks and `voluntary_ctxt_switches` work.
 - Fault injection: "overlay surface creation fails" is unit-tested (`overlay_error` logged, nothing raised); add the end-to-end daemon case.
+
+## Notes from Phase 07 (daemon, service, install; 2026-11-19 09:43 CST)
+- The daemon is `Daemon` in `daemon.py` (all parts injected), so end-to-end fault injection can use `FakeVpnSource` / `RecordingSink` / `FakeScheduler` (see `tests/test_daemon.py`: VPN drop, stale reading by timer, callback exception, broken engine, sink failure, reload failure). Real-process cases (`ip monitor` killed, overlay creation failing, Hyprland socket gone) run against the installed service: `systemctl --user kill -s KILL` the child, or `vpn-monitor run --foreground` in a spare terminal.
+- Live drop timing seen in Phase 07 (Nick toggled ProtonVPN with the Proton app focused): `ip monitor` event to reading 229 ms (disconnect) and 222 ms (reconnect), the same as Phase 04. The end-to-end "VPN drop to red on screen with a browser focused" number is still to be measured here (grim or the JSONL timestamps).
+- Child `ip` processes must not inherit `LD_PRELOAD=libgtk4-layer-shell.so` (fixed in `vpn._c_env`; probes were 300 to 400 ms with it). Check any new subprocess for the same.
+- Service sandbox: `systemd-analyze --user security vpn-monitor.service` = 1.6 OK; `RestrictAddressFamilies=AF_UNIX AF_NETLINK` means no IP socket can exist (S2). Put that in the threat model.
+- Control socket facts for the threat model: 0700 dir / 0600 socket, `SO_PEERCRED`, 4096-byte lines, 0.5 s client timeout (a slow same-uid client can block the main loop for that long; documented, not fixed).
+- The overlay's first map takes 150 to 200 ms on the main loop (ADR-0017), so a bar appears about that long after focus; measure it with the rest.
+- The installed symlink points into the repository; after the Phase 07 merge it points at `/home/nick/Work/VPNMonitor/scripts/vpn-monitor`.
+

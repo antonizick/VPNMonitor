@@ -1,6 +1,6 @@
 # VPM: Architecture
 
-Status as of Phase 06 (2026-11-19 09:18 CST): types, fakes, the pure engine, browser matcher, config, event log, VPN detector, focus watcher and glow-bar overlay are built; every module marked *stub* raises `NotImplementedError` until the phase named. Keep this file in sync as phases land.
+Status as of Phase 07 (2026-11-19 09:43 CST): every module is built: types, fakes, the pure engine, browser matcher, config, event log, VPN detector, focus watcher, glow-bar overlay, daemon, control socket, systemd unit and installer. Keep this file in sync as phases land.
 
 ## Components
 
@@ -9,12 +9,12 @@ flowchart LR
     subgraph inputs
         F[focus.py<br/>Hyprland socket2 watcher]
         V[vpn.py<br/>route probe + ip monitor watcher]
-        C[control.py<br/>Unix socket: pause/resume/status<br/>stub, Phase 07]
+        C[control.py<br/>Unix socket: pause/resume/toggle/status]
     end
     E[engine.py<br/>pure decision]
     O[overlay.py<br/>GTK4 layer-shell glow bar]
     L[eventlog.py<br/>human log + JSONL]
-    D[daemon.py<br/>wiring on the GLib main loop<br/>stub, Phase 07]
+    D[daemon.py<br/>wiring on the GLib main loop]
     B[browsers.py<br/>class matcher]
     CFG[config.py<br/>TOML + validation]
 
@@ -154,6 +154,19 @@ Process setup: `ensure_layer_shell(argv)` re-execs once with `LD_PRELOAD=libgtk4
 
 Measured on the reference machine (bar shown, after the fade): 0 idle redraws, 0 CPU ticks over 20 s, RSS 105 MB / PSS 58 MB, 6 threads; about 10 draws per fade at 60 Hz.
 
+## Daemon (`daemon.py`, ADR-0018)
+`Daemon(config, focus=, vpn=, sink=, scheduler=, log=, clock=, sink_factory=, config_loader=, on_stop=)` has no GLib or GTK import: the sources, sink and scheduler are injected, so tests drive the whole pipeline with `FakeFocusSource`, `FakeVpnSource`, `RecordingSink` and `FakeScheduler`. `run()` builds the real parts (`FocusWatcher`, `RouteWatcher`, `GlowOverlay`, `GLibScheduler`) after `ensure_layer_shell(argv)` and the single-instance lock.
+
+After every input (`_on_focus`, `_on_vpn`, the deadline timer, pause/resume) the daemon runs `_settle`: apply and log the Decision if it changed, `vpn.set_active(engine.active)` if that flipped, and re-arm one timer at `engine.next_deadline()` (plus a 1 ms slack). A callback exception is logged and fed to the engine as an `UNKNOWN` reading (red); if the engine itself is broken, a blue bar is forced red; sink failures are logged and ignored. Signals: SIGTERM/SIGINT stop the sources, remove the bar and quit the loop; SIGHUP reloads the config (the new engine replays the last focus, reading and pause state; a changed `[appearance]` rebuilds the overlay; `[vpn]`/`[probes]` changes need a restart; a broken file keeps the old config). Pause (`set_paused`) is in memory only; `pause.auto_resume_minutes > 0` schedules an automatic resume.
+
+`status()` returns: version, pid, uptime, `paused` and `pause_resumes_in_s`, indicator, monitor and reason, `focus` (class, matched rule, monitor, fullscreen; never a title), `reading` (state, reason, per-family routes, age), `focus_watcher` (`connected`, `reconnects`) and `vpn_watcher` (`watcher_up`, `last_trigger`).
+
+## Control socket (`control.py`, spec S5, AM-3)
+`ControlServer(scheduler, handler, path=, log=)` listens on `$XDG_RUNTIME_DIR/vpn-monitor/control.sock` (directory 0700, socket 0600). One connection = one request line (`{"cmd": "pause"}`, at most 4096 bytes) and one reply line (`{"ok": true, ...}` or `{"ok": false, "error": ...}`). The peer uid (`SO_PEERCRED`) must equal ours, otherwise the connection is dropped without a reply and logged (`control_rejected`); unknown commands are rejected and logged; a handler exception is contained (`control_error`). `InstanceLock` is an `flock` on `daemon.lock` in the same directory (`AlreadyRunning` → exit 1). `send_command(cmd)` is the client (`DaemonNotRunning` → CLI exit 3). The CLI (`pause`, `resume`, `toggle`, `status [--json]`, `log [-f] [--events]`, `run`) lives in `cli.py`; `pause`/`resume`/`toggle` also call `notify-send` and play a soft audio cue (`sound.py`: synthesised WAVs cached in `$XDG_CACHE_HOME/vpn-monitor/`, played detached by the CLI, never by the sandboxed daemon; `[pause] sound`, `sound_volume`).
+
+## Service and installation (`packaging/systemd/vpn-monitor.service`, `scripts/`)
+The user unit runs `~/.local/bin/vpn-monitor run --foreground` (`Restart=on-failure`, `RestartSec=2`, `PartOf`/`After=graphical-session.target`, `GSK_RENDERER=cairo`) under `ProtectSystem=strict`, `ProtectHome=read-only`, `StateDirectory`/`RuntimeDirectory=vpn-monitor`, `PrivateTmp`, `NoNewPrivileges`, an empty capability set, `SystemCallFilter=@system-service` and `RestrictAddressFamilies=AF_UNIX AF_NETLINK` (no IP sockets at all: S2 enforced by the kernel). `systemd-analyze --user security`: 1.6 OK. `scripts/vpn-monitor` is the wrapper (system python, `PYTHONPATH=src`); `scripts/install.sh` and `scripts/uninstall.sh` are idempotent and covered by tests against a temporary `HOME` with `systemctl` and `hyprctl` stubbed. The daemon's `LD_PRELOAD=libgtk4-layer-shell.so` is removed from the environment of child `ip` processes (`vpn._c_env`), which would otherwise take 200 ms each.
+
 ## Logging (`eventlog.py`, ADR-0014)
 Every decision change and every error goes to both logs with its inputs and reason (spec R11). `EventLog(state_dir=None, max_bytes=1_000_000, backup_count=3, guard=None)` writes to `$XDG_STATE_HOME/vpn-monitor/` (default `~/.local/state/vpn-monitor/`, directory 0700): `vpn-monitor.log` (human) and `events.jsonl`, each size-rotated. Methods: `decision(Decision)`, `record(event, reason=…, decision=None, inputs=None, level=INFO)`, `error(event, reason, inputs)`, `close()`.
 
@@ -162,7 +175,7 @@ JSONL schema, one object per line:
 | Key | Type | Meaning |
 |---|---|---|
 | `ts` | string | wall clock, ISO 8601 with UTC offset, milliseconds |
-| `event` | string | `decision`, `reading`, `focus`, `pause`, `config`, `error`, … |
+| `event` | string | `decision`, `reading`, `focus`, `pause`, `resume`, `daemon_started`, `daemon_stopped`, `config_reload`, `control_rejected`, `*_failed`, … |
 | `level` | string | `debug` / `info` / `warning` / `error` |
 | `decision` | string or null | `hidden` / `red` / `blue` |
 | `monitor` | string or null | monitor that shows the bar (`""` when hidden) |

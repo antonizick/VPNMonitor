@@ -98,6 +98,10 @@ class PauseConfig:
 
     auto_resume_minutes: int = 0
     """0 = until resumed or the next login."""
+    sound: bool = True
+    """Play a soft cue when pausing (falling) and resuming (rising)."""
+    sound_volume: int = 30
+    """Cue volume, 0 to 100 percent of a deliberately quiet maximum."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,7 +277,14 @@ _SCHEMA: dict[str, tuple[type[Any], dict[str, Validator]]] = {
             "fade_ms": _integer(0, 2_000),
         },
     ),
-    "pause": (PauseConfig, {"auto_resume_minutes": _integer(0, 24 * 60)}),
+    "pause": (
+        PauseConfig,
+        {
+            "auto_resume_minutes": _integer(0, 24 * 60),
+            "sound": _boolean,
+            "sound_volume": _integer(0, 100),
+        },
+    ),
     "log": (
         LogConfig,
         {"max_bytes": _integer(10_000, 100_000_000), "backup_count": _integer(1, 20)},

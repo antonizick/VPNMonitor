@@ -432,6 +432,19 @@ def notify(summary: str) -> None:
         )
 
 
+def cue(name: str) -> None:
+    """Soft audio feedback, if enabled in ``[pause]``; never fails (a bad config means defaults)."""
+    from vpn_monitor.config import ConfigError, PauseConfig, load_config
+    from vpn_monitor.sound import play
+
+    try:
+        settings = load_config().pause
+    except ConfigError:
+        settings = PauseConfig()
+    if settings.sound:
+        play(name, settings.sound_volume)
+
+
 def _ask_daemon(command: str) -> dict[str, Any] | int:
     """Send ``command``; return the reply, or the exit code to use after printing the error."""
     from vpn_monitor.control import ControlError, DaemonNotRunning, send_command
@@ -457,6 +470,7 @@ def _control(command: str) -> int:
     paused = bool(reply.get("paused"))
     print("vpn-monitor paused" if paused else "vpn-monitor resumed")
     notify("VPN Monitor paused" if paused else "VPN Monitor resumed")
+    cue("pause" if paused else "resume")
     return 0
 
 

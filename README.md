@@ -12,10 +12,43 @@ No browser focused means no bar. The overlay is click-through and never takes in
 
 *The bottom 60 px of a 3840×2160 monitor at scale 1.6, over a plain fullscreen window. The bar shows over fullscreen browsers too.*
 
-> **Status: in development.** Nothing is installable yet. See the [implementation plan](VPM_IMPLEMENTATION_PLAN.md).
+> **Status: working, in hardening.** It installs and runs as a systemd user service (Phase 07). See the [implementation plan](VPM_IMPLEMENTATION_PLAN.md).
 
 ## How it works
 Hyprland's event socket reports which window has focus (window **class** only, never the title). The kernel routing table tells which interface internet-bound traffic (IPv4 and IPv6) would leave through, and the kernel's own link type says whether that is a VPN tunnel (WireGuard or tun). That works for any VPN of those kinds (ProtonVPN, Mullvad, `wg-quick`, OpenVPN, a Tailscale exit node), with or without NetworkManager. Blue means every family either goes through a VPN or is blocked (kill switch, leak guard), and at least one goes through a VPN. Route changes are watched, so a VPN drop turns the bar red within a fraction of a second (measured: 0.23 s). A pure decision engine combines the two, and a GTK4 + `gtk4-layer-shell` overlay draws the bar. Anything unknown renders red: the indicator never says "safe" unless it is sure.
+
+## Install
+```
+git clone <this repository> && cd VPNMonitor
+scripts/install.sh            # add --no-keybinding or --no-start to skip those steps
+```
+`install.sh` is idempotent and changes only your home directory:
+
+| What | Where |
+|---|---|
+| command (a symlink to `scripts/vpn-monitor`, which runs the repository with the system python) | `~/.local/bin/vpn-monitor` |
+| systemd user unit, enabled and started (it follows your graphical session) | `~/.config/systemd/user/vpn-monitor.service` |
+| pause/resume key **SUPER+ALT+SHIFT+V** (one marked block; the original is saved once as `bindings.lua.bak.vpn-monitor`) | `~/.config/hypr/bindings.lua` |
+
+It refuses to touch anything if that key is already bound to something else. The command points into the repository, so run `scripts/install.sh` again if you move it. **Uninstall:** `scripts/uninstall.sh` removes all three (the bindings file is restored exactly unless you edited it meanwhile, and the backup is left in place). Logs stay in `~/.local/state/vpn-monitor/`.
+
+## Usage
+```
+vpn-monitor status [--json]   # focus, VPN reading with per-family reasons, indicator, uptime
+vpn-monitor pause             # hide the bar and stop probing (also: SUPER+ALT+SHIFT+V)
+vpn-monitor resume            # show it again
+vpn-monitor toggle            # pause or resume (what the key runs)
+vpn-monitor log [-f] [--events]   # recent human log, or the JSONL events; -f follows
+vpn-monitor run [--foreground]    # run the daemon yourself (the service does this at login)
+```
+`pause` and `resume` show a desktop notification and play a soft two-tone cue (falling for pause, rising for resume; `pause.sound = false` mutes it, `pause.sound_volume` sets the level). A pause lasts until you resume or the next login (set `pause.auto_resume_minutes` for an automatic resume). `systemctl --user reload`-style config changes: send `SIGHUP` (`systemctl --user kill -s HUP vpn-monitor`); a broken file keeps the old settings, and `[vpn]`/`[probes]` changes need a restart.
+
+## Troubleshooting
+- **No bar at all.** `vpn-monitor status` (exit 3 means the daemon is not running: `systemctl --user status vpn-monitor`, `journalctl --user -u vpn-monitor`). The bar shows only while a window on the browser list has focus: run `vpn-monitor focus` to see the class and the rule that matched.
+- **"overlay_unavailable" in the log.** gtk4-layer-shell is missing or the compositor lacks layer-shell; the daemon exits instead of opening a normal window.
+- **Red although you are on a VPN.** `vpn-monitor probe` explains the verdict per address family (a kill-switch or leak-guard interface, an IPv6 route outside the tunnel, a stale reading).
+- **The key does nothing.** `hyprctl binds -j | grep -i 'VPN Monitor'`; if it is missing, run `hyprctl reload` or `scripts/install.sh` again.
+- **"another instance is already running".** Only one daemon may run (`vpn-monitor status` shows it).
 
 ## Requirements
 - Omarchy / Hyprland
@@ -24,17 +57,7 @@ Hyprland's event socket reports which window has focus (window **class** only, n
 - `uv` for development only
 
 ## Development
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup (`uv venv --system-site-packages && uv sync`) and the quality gates. Architecture: [docs/VPM_ARCHITECTURE.md](docs/VPM_ARCHITECTURE.md). Daemon commands exist as stubs (exit status 2, "not implemented yet") until Phase 07. `vpn-monitor probe` works now: it checks the routes once and explains the verdict (`--json`, or `--watch` to follow changes live). So does `vpn-monitor focus`: it prints the focused window's class, whether it counts as a browser (and by which rule) and its monitor, never the title (`--watch` follows focus changes live). `vpn-monitor preview red|blue|cycle` draws the bar directly (no VPN or focus logic) so you can judge the look: `--seconds N` stops after N seconds, `--monitor DP-1` picks the monitor, `--backdrop` adds a plain fullscreen window underneath (it takes keyboard focus while open), and the draw counter it prints should stay put once a fade ends. `scripts/preview.sh [MONITOR]` saves the screenshots in `docs/screenshots/`. To make another app count as a browser, run `vpn-monitor focus` while it is focused to read its class, then add that class to `browsers.classes` (exact) or a regex to `browsers.patterns` in the config.
-
-## Planned commands
-```
-vpn-monitor run         # start the daemon (normally run by a systemd user service)
-vpn-monitor pause       # hide the bar
-vpn-monitor resume      # show it again
-vpn-monitor toggle      # pause or resume
-vpn-monitor status      # current state (add --json for machine-readable output)
-vpn-monitor log         # show recent events
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup (`uv venv --system-site-packages && uv sync`) and the quality gates. Architecture: [docs/VPM_ARCHITECTURE.md](docs/VPM_ARCHITECTURE.md). `vpn-monitor probe` checks the routes once and explains the verdict: it checks the routes once and explains the verdict (`--json`, or `--watch` to follow changes live). `vpn-monitor focus` prints the focused window's class, whether it counts as a browser (and by which rule) and its monitor, never the title (`--watch` follows focus changes live). `vpn-monitor preview red|blue|cycle` draws the bar directly (no VPN or focus logic) so you can judge the look: `--seconds N` stops after N seconds, `--monitor DP-1` picks the monitor, `--backdrop` adds a plain fullscreen window underneath (it takes keyboard focus while open), and the draw counter it prints should stay put once a fade ends. `scripts/preview.sh [MONITOR]` saves the screenshots in `docs/screenshots/`. To make another app count as a browser, run `vpn-monitor focus` while it is focused to read its class, then add that class to `browsers.classes` (exact) or a regex to `browsers.patterns` in the config.
 
 ## Configuration
 Optional: `~/.config/vpn-monitor/config.toml` (or `$XDG_CONFIG_HOME/vpn-monitor/config.toml`). Every key is optional; [`config/config.example.toml`](config/config.example.toml) lists them all with their defaults. Copy it and keep only what you change. The main keys:
@@ -51,6 +74,7 @@ Optional: `~/.config/vpn-monitor/config.toml` (or `$XDG_CONFIG_HOME/vpn-monitor/
 | `appearance.red` / `appearance.blue` / `thickness` / `glow` | `#FF3B30CC` / `#0A84FFCC` / `2` / `10` | the bar's look: colours (`#RRGGBBAA` alpha allowed), core line and glow height in logical px |
 | `appearance.fade_ms` | `150` | fade on show, hide and red ↔ blue |
 | `pause.auto_resume_minutes` | `0` | 0 = paused until resumed or the next login |
+| `pause.sound` / `pause.sound_volume` | `true` / `30` | soft audio cue on pause (falling) and resume (rising); volume 0 to 100 |
 
 Unknown keys are ignored with a warning in the log; an invalid value stops the daemon with an error naming the key. Logs live in `~/.local/state/vpn-monitor/` (`vpn-monitor.log` and `events.jsonl`, rotated by size).
 
