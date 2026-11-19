@@ -94,7 +94,7 @@ class InstanceLock:
         except OSError as exc:
             os.close(fd)
             if exc.errno in (errno.EWOULDBLOCK, errno.EAGAIN):
-                raise AlreadyRunning("vpn-monitor is already running") from exc
+                raise AlreadyRunning("another instance is already running") from exc
             raise
         os.ftruncate(fd, 0)
         os.write(fd, f"{os.getpid()}\n".encode())

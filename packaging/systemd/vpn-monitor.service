@@ -40,6 +40,10 @@ LockPersonality=yes
 SystemCallArchitectures=native
 RestrictAddressFamilies=AF_UNIX AF_NETLINK
 CapabilityBoundingSet=
+ProtectProc=invisible
+KeyringMode=private
+RestrictNamespaces=yes
+SystemCallFilter=@system-service
 
 [Install]
 WantedBy=graphical-session.target

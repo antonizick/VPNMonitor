@@ -408,6 +408,8 @@ def test_reload_applies_new_browser_list_and_replays_state(tmp_path: Path) -> No
         assert rig.shown is Indicator.HIDDEN
         rig.daemon.reload()
         assert rig.shown is Indicator.BLUE  # foot is a "browser" now; focus and reading replayed
+        assert rig.sink.last is not None
+        assert rig.sink.last.inputs["vpn_state"] == "vpn"  # the logged inputs are the replayed ones
     finally:
         rig.log.close()
 
@@ -483,5 +485,35 @@ def test_reload_survives_a_sink_rebuild_failure(tmp_path: Path) -> None:
         rig.daemon.start()
         rig.daemon.reload()
         assert any(e["event"] == "overlay_failed" for e in rig.events())
+    finally:
+        rig.log.close()
+
+
+def test_reload_replay_failure_is_red_not_blue(tmp_path: Path, monkeypatch: Any) -> None:
+    from vpn_monitor import daemon as daemon_module
+
+    real_engine = daemon_module.Engine
+    rig, _ = make_reload_rig(tmp_path, Config)
+    try:
+        rig.daemon.start()
+        rig.vpn.emit(vpn_reading(rig.now))
+        rig.focus.emit(BRAVE)
+        assert rig.shown is Indicator.BLUE
+
+        class Broken:
+            @classmethod
+            def from_config(cls, *_: Any) -> Any:
+                engine = real_engine.from_config(Config(), rig.scheduler.clock)
+
+                def boom(*_a: Any) -> Any:
+                    raise RuntimeError("bug")
+
+                engine.on_focus = boom  # type: ignore[method-assign]
+                return engine
+
+        monkeypatch.setattr(daemon_module, "Engine", Broken)
+        rig.daemon.reload()
+        assert any(e["event"] == "config_reload_failed" for e in rig.events())
+        assert rig.shown in (Indicator.RED, Indicator.HIDDEN)  # never blue
     finally:
         rig.log.close()

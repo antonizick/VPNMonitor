@@ -301,19 +301,20 @@ class Daemon:
                 "config_reload", reason="[vpn] and [probes] changes need a restart to take effect"
             )
         self._log.record("config_reload", reason="configuration reloaded")
-        # Replay the inputs into the new engine; the new Decision always reaches the overlay.
+        # Replay the inputs into the new engine; the resulting Decision always reaches the overlay
+        # (it may be a new sink) and the log, even if it equals the old one.
         self._engine.on_pause(paused)
-        steps: list[Callable[[], Decision | None]] = []
-        if self._last_focus is not None:
-            focus = self._last_focus
-            steps.append(lambda: self._engine.on_focus(focus))
-        if self._last_reading is not None:
-            reading = self._last_reading
-            steps.append(lambda: self._engine.on_vpn(reading))
-        decision: Decision | None = None
-        for step in steps:
-            decision = step() or decision
-        self._settle(decision if decision is not None else self._engine.decision)
+        try:
+            if self._last_focus is not None:
+                self._engine.on_focus(self._last_focus)
+            if self._last_reading is not None:
+                self._engine.on_vpn(self._last_reading)
+        except Exception as exc:
+            self._log.error("config_reload_failed", f"replay failed: {type(exc).__name__}: {exc}")
+            self._fail_safe("reload")
+            self._apply(self._engine.decision)  # the sink must follow the new (failed) engine
+            return
+        self._settle(self._engine.decision)
 
 
 def _watcher_facts(source: object, names: Sequence[str]) -> dict[str, Any]:
