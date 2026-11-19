@@ -424,8 +424,10 @@ def _open_backdrop(monitor: str) -> Any:  # pragma: no cover - live
 def notify(summary: str) -> None:
     """Desktop notification via ``notify-send``; silently skipped if it is missing or fails."""
     with contextlib.suppress(OSError, subprocess.SubprocessError):
-        subprocess.run(
-            ["notify-send", "-a", "VPN Monitor", "-u", "low", "-t", "2500", summary],
+        # Fixed argv, no shell; summary is one of two fixed strings. notify-send comes from the
+        # user's own PATH (same trust level as the user).
+        subprocess.run(  # noqa: S603
+            ["notify-send", "-a", "VPN Monitor", "-u", "low", "-t", "2500", summary],  # noqa: S607
             check=False,
             timeout=5,
             capture_output=True,
@@ -544,7 +546,8 @@ def _log(args: argparse.Namespace) -> int:
         print(f"vpn-monitor: no log yet at {path}", file=sys.stderr)
         return 1
     if args.follow:  # pragma: no cover - replaces the process
-        os.execvp("tail", ["tail", "-n", str(LOG_TAIL_LINES), "-F", str(path)])
+        # Fixed argv; the path is our own log file.
+        os.execvp("tail", ["tail", "-n", str(LOG_TAIL_LINES), "-F", str(path)])  # noqa: S606, S607
     with path.open(encoding="utf-8", errors="replace") as handle:
         sys.stdout.writelines(deque(handle, maxlen=LOG_TAIL_LINES))
     return 0

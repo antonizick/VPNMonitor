@@ -29,3 +29,9 @@ Full suite green on the tagged commit; CI green.
 
 ## Phase-specific docs
 README, CHANGELOG, `docs/VPM_FINAL-REPORT.md` (new, prefixed), plan Definition of done, OSMods write-up (final version), vault note. Then the standard close-out checklist.
+
+## Notes from Phase 08 (hardening; 2026-11-19 10:41 CST)
+- **CI is still blocked by GitHub billing** ("recent account payments have failed or your spending limit needs to be increased"; jobs never start). Owner question 7: Nick will fix billing; then re-run the `CI` workflow on `main` and record the run URL as the "CI green" evidence. If it is still blocked, ask Nick again before ticking that box (local runs of the CI recipe pass on 3.12 and 3.14).
+- Evidence for the Definition of done is in `docs/VPM_THREAT_MODEL.md` (no false blue in any tested fault: T1–T16, fault tests in `tests/test_fault_injection.py`), the README performance table (drop → red 0.25 s; focus → first frame 15–75 ms; idle 0.057 % CPU, no timers; PSS 42 MB, spec AM-4) and the Phase 08 Phase Log entry (log audit: no titles, URLs, public IPs, MACs or connection names).
+- Accessibility: Nick kept the colour-only signal (ADR-0019); nothing to do for the release.
+- After the Phase 08 merge the service runs from the main checkout; nothing to reinstall.

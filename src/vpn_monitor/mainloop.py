@@ -8,11 +8,22 @@ of the package (and CI without PyGObject) never needs it.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from typing import Any, Protocol
 
 Handle = int
 """Opaque id of a scheduled timer or fd watch."""
+
+
+def boot_clock() -> float:
+    """Seconds since boot, **including** time spent suspended (Linux ``CLOCK_BOOTTIME``).
+
+    The engine's staleness rule and every ``VpnReading.timestamp`` use this clock (ADR-0019).
+    ``time.monotonic`` stops while the machine sleeps, so a VPN reading taken just before a
+    suspend would still look seconds old after hours asleep and could keep a bar blue on resume.
+    """
+    return time.clock_gettime(time.CLOCK_BOOTTIME)
 
 
 class Scheduler(Protocol):

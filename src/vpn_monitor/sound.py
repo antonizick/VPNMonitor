@@ -68,7 +68,7 @@ def play(name: str, volume_percent: int, *, directory: Path | None = None) -> bo
         if not path.exists():
             path.write_bytes(cue_wav(name, volume_percent))
         argv = [player, "-q", str(path)] if player == "aplay" else [player, str(path)]
-        subprocess.Popen(
+        subprocess.Popen(  # noqa: S603 - argv is a fixed player name plus our own cache file
             argv,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,

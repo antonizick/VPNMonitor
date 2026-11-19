@@ -76,7 +76,7 @@ Optional: `~/.config/vpn-monitor/config.toml` (or `$XDG_CONFIG_HOME/vpn-monitor/
 | `pause.auto_resume_minutes` | `0` | 0 = paused until resumed or the next login |
 | `pause.sound` / `pause.sound_volume` | `true` / `30` | soft audio cue on pause (falling) and resume (rising); volume 0 to 100 |
 
-Unknown keys are ignored with a warning in the log; an invalid value stops the daemon with an error naming the key. Logs live in `~/.local/state/vpn-monitor/` (`vpn-monitor.log` and `events.jsonl`, rotated by size).
+Unknown keys are ignored with a warning in the log; an invalid value stops the daemon with an error naming the key. Logs live in `~/.local/state/vpn-monitor/` (`vpn-monitor.log` and `events.jsonl`, mode 0600, rotated by size: at most about 8 MB with the defaults). If they cannot be written, the daemon keeps running and logs to the journal instead (`journalctl --user -u vpn-monitor`).
 
 ## Honest limits
 - **Route-based.** "VPN" means internet routes leave through a VPN interface. It does not prove your VPN provider is trustworthy.
@@ -84,14 +84,33 @@ Unknown keys are ignored with a warning in the log; an invalid value stops the d
 - A Tailscale mesh connection alone counts as **not** a VPN (red), unless it is used as an exit node routing internet traffic.
 - Only browsers on the configurable class list are tracked.
 - **Interface-based VPNs only.** Policy-based IPsec without its own interface (classic strongSwan/libreswan setups) routes through the Wi-Fi/Ethernet interface and shows red; add a name glob if yours has an `xfrm`/`ipsec` interface. Conversely, a non-VPN tool that uses a tun device (for example a tun2socks proxy) counts as a VPN.
+- **Up, but dead.** A tunnel interface that exists but no longer passes traffic still shows blue: nothing leaks (packets go into the tunnel and stop), but blue does not mean the internet works.
+- **No bar is not "safe".** If the overlay cannot draw, or the daemon is paused or not running, there is no bar; only blue means protected. `vpn-monitor status` tells you which.
 - The check reflects the **current user's** routes (policy and uid rules included). An app that marks its packets differently (fwmark) could take another route.
 
+## Performance (measured 2026-11-19, reference machine)
+| What | Measured | Budget (spec R13) |
+|---|---|---|
+| CPU, no browser focused (10 min) | 0.057 %, 0.73 wake-ups/s (no timers; the wake-ups are Hyprland events) | ~0 % |
+| CPU, Brave focused (10 min, re-check every 5 s) | 0.12 % | < 1 % |
+| Memory | PSS 42–45 MB (RSS 104 MB, most of it shared GTK libraries) | < 80 MB |
+| Focus change → first frame of the bar | 15–75 ms (then a 150 ms fade-in) | < 150 ms |
+| VPN drop → red | 0.25 s (route event → reading 240 ms, → decision 2 ms) | < 2 s |
+| Redraws after a fade | 0 | 0 |
+
+## Future work
+- **DNS-leak check** (owner question 5, deferred): needs its own phase.
+- **A second, non-colour cue** for red (for example a dashed line). The colours are distinct for every common colour-vision deficiency (Phase 08 analysis, ADR-0019), so the owner kept colour only; add it with `/phase-add` if wanted.
+- **Suspend signal from logind** (`PrepareForSleep`): would drop the reading the moment the machine sleeps. The suspend-aware clock already makes the first wake-up after resume red; the lock screen covers the short gap before it.
+- **A slow same-user control client** can stall the main loop for up to 0.5 s (documented, accepted: it needs a process of your own account).
+
 ## Privacy and security
-No window titles are read, logged or stored. No network calls are made. See [SECURITY.md](SECURITY.md).
+No window titles are read, logged or stored. No network calls are made. See [SECURITY.md](SECURITY.md) and the [threat model](docs/VPM_THREAT_MODEL.md).
 
 ## Documentation
 - [Specification](docs/VPM_SPECIFICATION.md) (the Amendments section overrides earlier sections)
 - [Decisions (ADRs)](docs/VPM_DECISIONS.md)
+- [Threat model](docs/VPM_THREAT_MODEL.md)
 - [Implementation plan](VPM_IMPLEMENTATION_PLAN.md)
 - [Docs index](docs/README.md)
 - [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
