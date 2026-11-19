@@ -7,10 +7,19 @@ A tiny always-on desktop add-on for [Omarchy](https://omarchy.org)/Hyprland. Whi
 
 No browser focused means no bar. The overlay is click-through and never takes input.
 
-![Red bar: not on a VPN](docs/screenshots/vpm-bar-red.png)
-![Blue bar: on a VPN](docs/screenshots/vpm-bar-blue.png)
+| Not on a VPN (red) | On a VPN (blue) |
+|---|---|
+| ![Red bar: not on a VPN](docs/screenshots/vpm-bar-red.png) | ![Blue bar: on a VPN](docs/screenshots/vpm-bar-blue.png) |
 
-*The bottom 60 px of a 3840×2160 monitor at scale 1.6, over a plain fullscreen window. The bar shows over fullscreen browsers too.*
+Close-up of the bottom-left corner of the screen (zoomed 3x), red on top, blue below: a 2 px core with a soft 10 px glow.
+
+![Close-up of the red and blue bar](docs/screenshots/vpm-bar-zoom.png)
+
+Full width of a 3840×2160 monitor at scale 1.6 (bottom 220 px, scaled down), red on top, blue below:
+
+![The bar across the whole monitor width](docs/screenshots/vpm-bar-wide.png)
+
+*Real captures (`grim`) over a plain fullscreen backdrop, so nothing personal is in them. The bar shows over fullscreen browsers too.*
 
 > **Status: v1.0.0.** Complete and running as a systemd user service on the reference machine (Omarchy, Hyprland 0.56, ProtonVPN WireGuard). Hardened and measured (see [Performance](#performance-measured-2026-11-19-reference-machine) and the [threat model](docs/VPM_THREAT_MODEL.md)). CI is configured but has not run on GitHub yet (account billing block); the same checks pass locally. See the [final report](docs/VPM_FINAL-REPORT.md).
 

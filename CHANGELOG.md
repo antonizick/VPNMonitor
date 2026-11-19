@@ -9,6 +9,7 @@ All notable changes to this project are documented here. The format follows [Kee
 First release: the complete VPN Monitor (phases 01 to 09). Tagged `v1.0.0` on the private repository; no GitHub release. See `docs/VPM_FINAL-REPORT.md`.
 
 ### Added
+- README close-up and full-width screenshots of the red and blue bar (`docs/screenshots/vpm-bar-zoom.png`, `vpm-bar-wide.png`); 2026-11-19 13:20 CST.
 - `docs/VPM_FINAL-REPORT.md`: what was built, brainstorm trace, measured numbers, known limits, future work and the generated timeline.
 
 ### Security
