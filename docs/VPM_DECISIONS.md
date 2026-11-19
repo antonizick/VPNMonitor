@@ -9,13 +9,13 @@ Lightweight ADRs. Append new decisions at the bottom, and never rewrite history:
 | ADR-0003 | 2026-11-18 21:53 CST | "On a VPN" = internet routes leave via a VPN interface; fail-safe red | Accepted | 00 |
 | ADR-0004 | 2026-11-18 21:53 CST | Browsers include Omarchy web apps; configurable matcher | Accepted | 00 |
 | ADR-0005 | 2026-11-18 21:53 CST | Always-on systemd user service with a pause/resume keybinding | Accepted | 00 |
-| ADR-0006 | 2026-11-18 21:53 CST | Python on the system interpreter + PyGObject/gtk4-layer-shell; uv for dev tools | Accepted (2026-11-18 22:14 CST) | 02 |
+| ADR-0006 | 2026-11-18 21:53 CST | Python on the system interpreter + PyGObject/gtk4-layer-shell; uv for dev tools | Accepted (2026-11-18 22:19 CST) | 02 |
 | ADR-0007 | 2026-11-18 21:53 CST | Event-driven VPN detection with a periodic re-check only while a browser is focused | Proposed | 04 |
 | ADR-0008 | 2026-11-18 21:53 CST | MIT licence; private GitHub repo; going public is the owner's call | Accepted | 00 |
 | ADR-0009 | 2026-11-18 21:53 CST | Pause keybinding SUPER+ALT+SHIFT+V (SUPER+ALT+V is taken) | Proposed | 07 |
 | ADR-0010 | 2026-11-18 21:53 CST | Privacy: never read/log window titles; no external network calls | Accepted | 00 |
-| ADR-0011 | 2026-11-18 22:14 CST | Sources and sinks use a callback-style Protocol (`start(callback)` / `stop()`), not async iterators | Accepted | 02 |
-| ADR-0012 | 2026-11-18 22:14 CST | Single GLib main loop on the main thread; all callbacks run on it; no threads in the core | Accepted | 02 |
+| ADR-0011 | 2026-11-18 22:19 CST | Sources and sinks use a callback-style Protocol (`start(callback)` / `stop()`), not async iterators | Accepted | 02 |
+| ADR-0012 | 2026-11-18 22:19 CST | Single GLib main loop on the main thread; all callbacks run on it; no threads in the core | Accepted | 02 |
 
 ---
 
@@ -61,7 +61,7 @@ Lightweight ADRs. Append new decisions at the bottom, and never rewrite history:
 **Decision.** Python ≥ 3.12 on the system interpreter, PyGObject and gtk4-layer-shell from pacman, no runtime pip dependencies; dev tools via `uv` in a `--system-site-packages` venv.
 **Consequences.** Dependency on pacman packages is documented in README; CI skips GI tests where `gi` is missing.
 
-**Verification (2026-11-18 22:14 CST, Phase 02): Accepted.** On the reference machine (Python 3.14.8, `python-gobject` 3.58.1, `gtk4-layer-shell` 1.3.0), `uv venv --system-site-packages && uv sync` followed by `uv run python -c "import gi; gi.require_version('Gtk','4.0'); gi.require_version('Gtk4LayerShell','1.0')"` works **without** `LD_PRELOAD`. Layer-shell library: `/usr/lib/libgtk4-layer-shell.so` (symlink to `libgtk4-layer-shell.so.1.3.0`). Phase 06 re-checks whether `LD_PRELOAD` is needed when a real window is created (gtk4-layer-shell must be linked before libwayland-client in some setups) and records it there. Two findings: (1) without a pin, `uv` picks a uv-managed Python (3.13) that cannot see the system `gi`, so `pyproject.toml` sets `[tool.uv] python-preference = "only-system"`; (2) CI has no PyGObject, so it overrides this with `UV_PYTHON_PREFERENCE=managed` and the `gi`/`wayland` tests skip.
+**Verification (2026-11-18 22:19 CST, Phase 02): Accepted.** On the reference machine (Python 3.14.8, `python-gobject` 3.58.1, `gtk4-layer-shell` 1.3.0), `uv venv --system-site-packages && uv sync` followed by `uv run python -c "import gi; gi.require_version('Gtk','4.0'); gi.require_version('Gtk4LayerShell','1.0')"` works **without** `LD_PRELOAD`. Layer-shell library: `/usr/lib/libgtk4-layer-shell.so` (symlink to `libgtk4-layer-shell.so.1.3.0`). Phase 06 re-checks whether `LD_PRELOAD` is needed when a real window is created (gtk4-layer-shell must be linked before libwayland-client in some setups) and records it there. Two findings: (1) without a pin, `uv` picks a uv-managed Python (3.13) that cannot see the system `gi`, so `pyproject.toml` sets `[tool.uv] python-preference = "only-system"`; (2) CI has no PyGObject, so it overrides this with `UV_PYTHON_PREFERENCE=managed` and the `gi`/`wayland` tests skip.
 
 ## ADR-0007: Detection trigger strategy
 **Recorded.** 2026-11-18 21:53 CST (Phase 00). Status: Proposed, Phase 04 picks the event source.
@@ -92,14 +92,14 @@ Lightweight ADRs. Append new decisions at the bottom, and never rewrite history:
 **Consequences.** Debugging relies on class names and route data; tests assert titles never reach logs.
 
 ## ADR-0011: Source and sink Protocol style
-**Recorded.** 2026-11-18 22:14 CST (Phase 02). Status: Accepted.
+**Recorded.** 2026-11-18 22:19 CST (Phase 02). Status: Accepted.
 **Context.** Phases 04, 05 and 06 are built in parallel against shared interfaces, so the interface must be fixed now. The daemon runs on a GLib main loop (ADR-0012).
 **Options considered.** (a) Callback style: `FocusSource.start(callback)`, `stop()`; (b) `async for` over an async iterator, which needs an asyncio loop bridged to GLib; (c) a GLib signal-based GObject base class, which drags `gi` into the pure core and tests.
 **Decision.** (a). `FocusSource` and `VpnSource` deliver `FocusEvent` / `VpnReading` to a callback on the main-loop thread, `start` also delivers the initial state, `VpnSource.set_active(bool)` switches the periodic re-check on only while a browser is focused (ADR-0007), and `IndicatorSink.apply(Decision)` / `close()` renders. The Protocols live in `model.py` and are `runtime_checkable`.
 **Consequences.** Fakes are trivial and synchronous (`fakes.py`), so engine and wiring tests need no event loop. Real sources wrap `GLib.io_add_watch`, `GLib.timeout_add` or `Gio` signals themselves. Errors must not escape a source: a failure becomes an UNKNOWN `VpnReading` or a logged event.
 
 ## ADR-0012: Event-loop and threading model
-**Recorded.** 2026-11-18 22:14 CST (Phase 02). Status: Accepted.
+**Recorded.** 2026-11-18 22:19 CST (Phase 02). Status: Accepted.
 **Context.** GTK4 requires its widgets to be used from one thread; the sources (a Unix socket, route events, timers) are all I/O-bound and low-rate.
 **Options considered.** (a) One GLib main loop on the main thread, sources integrated via `GLib.io_add_watch`, `GLib.timeout_add` and `Gio`; (b) asyncio with a GLib bridge (extra dependency or glue); (c) worker threads feeding the UI through `GLib.idle_add`.
 **Decision.** (a). Everything, including the engine, runs on the main thread inside the GLib main loop. A subprocess (for example `ip monitor`) is read through `GLib.io_add_watch` on its pipe, never a blocking thread. If a probe ever must block, it runs in a short-lived thread that hands its result back with `GLib.idle_add`, and that is documented where it happens.

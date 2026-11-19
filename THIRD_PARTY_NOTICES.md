@@ -16,7 +16,7 @@ Development tools (uv, pytest, ruff, mypy, pre-commit, gitleaks) are used on the
 ## Keeping this file accurate
 Check licences before adding any dependency (see `CLAUDE.md`), and update this table in the same change.
 
-## Development-only dependencies (Phase 02, 2026-11-18 22:14 CST)
+## Development-only dependencies (Phase 02, 2026-11-18 22:19 CST)
 Installed by `uv sync` from `uv.lock` for local development and CI only. They are **not** shipped, bundled or imported by the `vpn-monitor` package. Licences read from each package's installed metadata.
 
 | Package | Locked version | Licence |
