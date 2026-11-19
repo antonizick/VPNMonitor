@@ -44,7 +44,7 @@ Clean-clone check at release: install, re-install and uninstall against a tempor
 - Interface-based VPNs only (IPsec without an interface shows red; a tun2socks proxy counts as a VPN). Blue does not mean the tunnel passes traffic.
 - Colour is the only signal (ADR-0019).
 - No bar is not "safe": only blue means protected.
-- **CI has never run green.** GitHub Actions refuses to start jobs because of an account billing block (owner question 7). The CI recipe was run locally instead on Python 3.12 and 3.14. Re-run the `CI` workflow once billing is fixed.
+- **CI:** blocked by an account billing problem until 2026-11-19 13:31 CST; once it ran it exposed two runner-only problems (pycairo missing for mypy and for 14 overlay tests), fixed in `pyproject.toml` and `tests/test_overlay.py`. Green on Python 3.12 and 3.14: https://github.com/antonizick/VPNMonitor/actions/runs/44598996095.
 
 ## Future work
 DNS-leak check (needs its own phase); a second non-colour cue; logind `PrepareForSleep` to drop the reading at suspend; slow same-user control clients can stall the loop for up to 0.5 s (accepted). Add any of these with `/phase-add`.
