@@ -8,7 +8,7 @@ Status as of Phase 03 (2026-11-18 22:29 CST): types, fakes, the pure engine, bro
 flowchart LR
     subgraph inputs
         F[focus.py<br/>Hyprland socket2<br/>stub, Phase 05]
-        V[vpn.py<br/>route probe + watcher<br/>stub, Phase 04]
+        V[vpn.py<br/>route probe + ip monitor watcher]
         C[control.py<br/>Unix socket: pause/resume/status<br/>stub, Phase 07]
     end
     E[engine.py<br/>pure decision]
@@ -90,6 +90,39 @@ Monitor: the focused window's monitor; if empty or not in the monitor list, the 
 
 ## Fail-safe
 Any exception, timeout or stale reading in a VPN path becomes `VpnReading(state=UNKNOWN, reason=...)`, which the engine renders red. Blue requires a fresh `VPN` reading whose routes agree with it (spec R4/S6).
+
+## VPN detector (`vpn.py`, ADR-0003, ADR-0007, ADR-0015)
+**Probe.** For each family, `ip -4|-6 -j route get <probe>` (defaults `1.1.1.1`, `2606:4700:4700::1111`; fixed argv, no shell, `LC_ALL=C`, `vpn.probe_timeout_s`). The kernel returns the route the current user's traffic would take, honouring policy rules, fwmarks and uid rules; no packet is sent (S2). The reading's timestamp is taken *before* probing (`time.monotonic`), so it is never younger than the data. The three `ip` calls take about 12 ms on the reference machine.
+
+**Per-family result.**
+
+| Kernel answer | `RouteKind` | `is_vpn` |
+|---|---|---|
+| unicast route via a `wireguard` or `tun` device, or a name matching `vpn.interface_patterns` | `ROUTED` | true |
+| unicast route via a `dummy` device or a name matching `vpn.leak_guard_interfaces` | `BLOCKED` | false |
+| unicast route via any other device (Wi-Fi, Ethernet, bridge, `sit`/`gre` tunnels…) | `ROUTED` | false (a leak) |
+| route type `blackhole` / `prohibit`, or the error "Permission denied" (IPv4 prohibit) | `BLOCKED` | false |
+| route type `unreachable`, or the errors "Network is unreachable", "No route to host", "Address family not supported" | `UNREACHABLE` | false |
+| `ip` missing, timeout, other exit status or error, non-JSON or empty output, no `dev`, another route type | `ERROR` | false |
+
+Link kinds come from `ip -d -j link show` (`linkinfo.info_kind`), cached, dropped on every change burst and reloaded for any unknown interface; if they cannot be read, only the name globs apply.
+
+**Verdict (spec R3).** In order: any family `ROUTED` outside a VPN → `NO_VPN` (the reason names the leaking family and interface); any `ERROR` → `UNKNOWN`; no family `ROUTED` (all blocked or unreachable: kill switch engaged, no network) → `NO_VPN`; otherwise `VPN`. A crash anywhere in the probe → `UNKNOWN`. A test checks over all 25 per-family combinations that `state is VPN` exactly when the engine's `reading_problem()` allows blue.
+
+**Watcher (`RouteWatcher`, the `VpnSource`).** Driven by a `mainloop.Scheduler` (`GLibScheduler` in the daemon, `fakes.FakeScheduler` in tests):
+
+| Trigger | Action |
+|---|---|
+| `start(callback)` | spawn `ip monitor route rule link`, probe at once |
+| any output line | drop the link cache; if no probe is pending, probe in 200 ms (`DEBOUNCE_S`); `last_latency_s` = time from the burst's first line to the reading |
+| `set_active(True)` | probe at once, then every `vpn.recheck_interval_s` (each probe restarts the interval) |
+| `set_active(False)` | cancel the re-check: no timers while no browser is focused |
+| monitor exits / read error / cannot start | log an error, restart after 0.5 s, doubling to 30 s (reset after a 30 s run); after it has run 1 s or delivered a line, log "running again" and re-probe |
+| monitor down > `vpn.max_reading_age_s` | a `VPN` reading is delivered as `UNKNOWN` (red); negative readings pass through |
+
+Readings are logged as `reading` events when their state or reason changes (inputs: `vpn_state`, `routes`, `trigger`, `latency_ms`); watcher failures as `vpn_watcher` errors. Measured on the reference machine (Phase 04): ProtonVPN disconnect → `NO_VPN` 228 ms after the first route event; reconnect → `VPN` 222 ms after it.
+
+`vpn-monitor probe [--json] [--watch [--log]] [--config PATH]` prints the reading (exit 0 VPN, 1 not through a VPN, 3 unknown, 2 config error); `--watch` runs the watcher on a GLib loop and prints every change with its trigger and reaction time.
 
 ## Logging (`eventlog.py`, ADR-0014)
 Every decision change and every error goes to both logs with its inputs and reason (spec R11). `EventLog(state_dir=None, max_bytes=1_000_000, backup_count=3, guard=None)` writes to `$XDG_STATE_HOME/vpn-monitor/` (default `~/.local/state/vpn-monitor/`, directory 0700): `vpn-monitor.log` (human) and `events.jsonl`, each size-rotated. Methods: `decision(Decision)`, `record(event, reason=…, decision=None, inputs=None, level=INFO)`, `error(event, reason, inputs)`, `close()`.

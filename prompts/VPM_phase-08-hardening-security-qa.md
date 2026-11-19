@@ -10,7 +10,7 @@ Evidence that VPN Monitor is honest (no false blue), private, cheap and robust, 
 
 ## Tasks
 1. Threat model `docs/VPM_THREAT_MODEL.md`: assets (the owner's belief about protection), the false-blue failure modes (stale reading, split-tunnel leak, policy-routing surprises, watcher death, Hyprland reconnect, monitor hot-plug, clock jumps, suspend/resume), local attackers (another user on the control socket), and privacy (titles, logs). Map each to a test or a mitigation.
-2. Fault-injection tests: `ip` hangs, `nmcli` missing, Hyprland socket closes mid-line, overlay surface creation fails, log directory read-only, suspend/resume (simulated clock jump): each ends red-or-hidden, never blue, and is logged.
+2. Fault-injection tests: `ip` hangs (Phase 04 covers `ip` missing/timeout/garbage at unit level; add an end-to-end daemon test), `ip monitor` dying (restart + red after `max_reading_age_s`, unit-tested in Phase 04), `nmcli` missing (not used since ADR-0015; confirm nothing else needs it), Hyprland socket closes mid-line, overlay surface creation fails, log directory read-only, suspend/resume (simulated clock jump): each ends red-or-hidden, never blue, and is logged.
 3. Scanners: `ruff` (with security rules `S`), `bandit` or ruff-S, `pip-audit`/`uv` audit of dev deps, `gitleaks` over full history, `systemd-analyze --user security vpn-monitor`, `shellcheck` on scripts. Fix or justify every finding.
 4. Measure on the reference machine and record numbers in the Phase Log and README: idle CPU with no browser focused (expect ~0 %, no wakeups: `perf`/`powertop` or `/proc` sampling over 10 min), CPU and RSS with Brave focused for 10 min, focus-to-bar latency (from the JSONL log), VPN-drop-to-red latency (ask Nick to toggle the VPN). Compare to spec R13.
 5. Log hygiene: grep the real logs for anything resembling a window title, URL, public IP, SSID; rotation works; size bounded.
@@ -31,3 +31,6 @@ New fault-injection and threat-model tests; full suite green; coverage report re
 
 ## Phase-specific docs
 `docs/VPM_THREAT_MODEL.md` (new, prefixed), SECURITY, README (performance, limits), `docs/VPM_ARCHITECTURE.md`, THIRD_PARTY_NOTICES, CHANGELOG, ADRs for deviations. OSMods write-up updated with measured results. Then the standard close-out checklist.
+
+## Notes from Phase 04
+- VPN-drop reaction measured in Phase 04 with `vpn-monitor probe --watch --log`: 228 ms (disconnect) and 222 ms (reconnect) from the first route event to the reading. For the end-to-end number, compare the `reading` event's `ts` with the `decision` event that follows it in `events.jsonl`.

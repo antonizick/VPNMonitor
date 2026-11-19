@@ -38,3 +38,8 @@ README (install, usage, uninstall, troubleshooting), SECURITY (control socket), 
 - After every input, (re)schedule **one** `GLib.timeout_add` at `engine.next_deadline()` (monotonic seconds; `None` = cancel) and call `engine.tick()` when it fires. Without it a stuck VPN watcher would leave blue on screen (ADR-0013). Call `vpn_source.set_active(engine.active)` whenever `active` changes.
 - Pause: `engine.on_pause(True/False)`; `config.pause.auto_resume_minutes` (0 = until resume or next login, owner question 4).
 - Status output can use `engine.decision` (indicator, monitor, reason, inputs) and `engine.paused`.
+
+## Notes from Phase 04 (VPN source)
+- Build the VPN source with `RouteWatcher(config, GLibScheduler(), log=log)` (`vpn_monitor.vpn`, `vpn_monitor.mainloop`); `start(cb)` with a callback that feeds `engine.on_vpn(reading)` and applies the result, `set_active(engine.active)` on every change of `active`, `stop()` at shutdown (terminates its `ip monitor` child). It logs `reading` and `vpn_watcher` events itself; the daemon only logs decisions.
+- `vpn-monitor probe` already exists in `cli.py` (exit 0/1/3, 2 = config error); keep it when filling in the other subcommands. `status` can show `watcher.last_reading`, `last_trigger`, `watcher_up`.
+- Probes run synchronously on the main loop (~12 ms, 1 s timeout per `ip` call, ADR-0007/0012).

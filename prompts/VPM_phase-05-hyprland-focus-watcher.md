@@ -35,3 +35,7 @@ Parser tests over recorded event lines (including titles with commas and `>>` in
 - The matcher is `vpn_monitor.browsers.BrowserMatcher` (`DEFAULT_CLASSES`, `DEFAULT_PATTERNS`, `match(cls) -> MatchResult(matched, rule)`; regexes use `re.fullmatch`). Record the real classes you observe and adjust the defaults there and in `config/config.example.toml` (a test checks the two agree).
 - For the title test, register the titles of your fake socket2 lines in `vpn_monitor.eventlog.TitleGuard` and pass it to `EventLog(guard=…)`; it raises `TitleLeakError` if a title reaches a record.
 - If the monitor name is unknown, send `monitor=""`: the engine falls back to the focused monitor from `on_monitors`, else the first known one.
+
+## Notes from Phase 04
+- Timers and fd watches go through `vpn_monitor.mainloop.Scheduler` (`call_later`, `watch_fd`, `cancel`); `GLibScheduler` is the real one and `vpn_monitor.fakes.FakeScheduler` (manual `advance()`, `ready(fd)`, `clock()`) drives tests without GLib. `RouteWatcher` in `vpn.py` is a worked example (stream restart with back-off, health timer).
+- A worktree venv must be created with `uv venv --system-site-packages && uv sync`, or `gi` is missing and the `gi` tests silently skip.

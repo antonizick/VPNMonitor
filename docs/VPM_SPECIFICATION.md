@@ -69,10 +69,13 @@ Where each idea in `VPM_Brainstorming.md` went. Disposition: **Adopted** (with t
 |---|---|---|---|---|
 | B1 | 2026-11-18 21:30 CST: (unlabelled) | Make it part of the operating system (always there, not an app you open) | Adopted | A4, ADR-0005, R12; Phase 07 |
 | B2 | 2026-11-18 21:30 CST: (unlabelled) | Trigger only while a browser window has focus | Adopted | A3, ADR-0004, R6, R7; Phase 03 built it in the engine (HIDDEN unless a matched browser or web app is focused, ADR-0013) and the matcher; Phase 05 feeds real focus events |
-| B3 | 2026-11-18 21:30 CST: (unlabelled) | Detect whether the OS is on a VPN | Adopted | A2, ADR-0003, R3, R4, R5; Phase 04 |
+| B3 | 2026-11-18 21:30 CST: (unlabelled) | Detect whether the OS is on a VPN | Adopted | A2, ADR-0003, R3, R4, R5; Phase 04 built it (`vpn.py`: per-family route probes, kernel link-kind classification that works for any WireGuard/tun VPN, ADR-0015; `ip monitor` change watcher, ADR-0007; `vpn-monitor probe`), verified live with ProtonVPN: drop → red in 228 ms |
 | B4 | 2026-11-18 21:30 CST: (unlabelled) | No VPN → glowing red line at the bottom of the screen | Adopted | A1, ADR-0002, R8; Phase 06 (look tuned via owner question 2) |
 | B5 | 2026-11-18 21:30 CST: (unlabelled) | VPN active → glowing blue bar at the bottom of the screen | Adopted | A1, ADR-0002, R8; Phase 06 |
 | B6 | 2026-11-18 21:30 CST: (unlabelled) | "Would this be technically feasible?" | Adopted | Answered yes in R1 (Phase 00), with the mechanisms verified on the machine |
+
+### 2.7 Later amendments
+- **AM-1 (2026-11-18 22:55 CST, Phase 04, ADR-0015): R3 classification uses the kernel link kind.** "NetworkManager reports it as a `wireguard`, `tun` or `vpn` device" is implemented as "the kernel reports the link kind `wireguard` or `tun` (`ip -d -j link show`)", which gives the same answer on the reference machine and also works without NetworkManager. Any `dummy` device, not only named leak guards, counts as blocked. The R5 event source is `ip monitor route rule link` (ADR-0007, Accepted). Verified on the reference machine: with ProtonVPN up both families go through `proton0` (Proton now provides IPv6, so the leak guard is not used); disconnected, IPv4 goes through `wlo1` and IPv6 is unreachable; while reconnecting, both families go into the kill-switch dummy `pvpnksintrf0`.
 
 ---
 
