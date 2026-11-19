@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Fixed
+- CI: `mypy` failed on the GitHub runner (`Cannot find implementation or library stub for module named "cairo"`) because pycairo is a system package like PyGObject; `cairo` joins `gi` in the mypy `ignore_missing_imports` overrides. Found when CI first ran after the billing fix (2026-11-19 13:28 CST).
+
 ## [1.0.0] - 2026-11-19 13:15 CST
 
 First release: the complete VPN Monitor (phases 01 to 09). Tagged `v1.0.0` on the private repository; no GitHub release. See `docs/VPM_FINAL-REPORT.md`.
