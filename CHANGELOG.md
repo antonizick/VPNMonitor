@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-19 13:15 CST
+
+First release: the complete VPN Monitor (phases 01 to 09). Tagged `v1.0.0` on the private repository; no GitHub release. See `docs/VPM_FINAL-REPORT.md`.
+
+### Added
+- `docs/VPM_FINAL-REPORT.md`: what was built, brainstorm trace, measured numbers, known limits, future work and the generated timeline.
+
 ### Security
 - Staleness now counts time spent suspended (`CLOCK_BOOTTIME`): a VPN reading taken before a suspend is stale on resume, so the bar cannot stay blue across a sleep on stale data (ADR-0019).
 - Log files are created mode 0600, and existing ones are tightened at start.

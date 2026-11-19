@@ -60,7 +60,7 @@ The project lives in a single Git repository that is ready to publish on GitHub.
 3. **Answered (2026-11-19 09:18 CST, Phase 06).** Show the bar over a fullscreen browser (videos)? Yes (it is thin; a safety signal should not disappear): `indicator.show_on_fullscreen = true`.
 4. **Answered (2026-11-19 09:43 CST, Phase 07, ADR-0018).** A pause lasts until resumed or the next login (not persisted). `pause.auto_resume_minutes` (default 0) can add an automatic resume.
 5. **Deferred (future `/phase-add`).** DNS-leak checking (whether DNS queries bypass the tunnel) is not part of this plan; the route test does not detect it. README states this limit.
-6. **Open.** Make the GitHub repo public and/or publish a release at the end? Default: stays private, no release. Needed by Phase 09.
+6. **Answered (2026-11-19 13:15 CST, Phase 09).** Stays private, no release; tag `v1.0.0` on the private repo only.
 
 ### 2.6 Brainstorm trace
 Where each idea in `VPM_Brainstorming.md` went. Disposition: **Adopted** (with the ADR, amendment or phase that carries it), **Deferred** (with its owner question) or **Dropped** (with the reason). A phase that fulfils or changes a row updates it at close-out; `/phase-add` appends rows for new brainstorm entries. Covered through: 2026-11-18 21:30 CST.

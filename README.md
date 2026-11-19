@@ -12,14 +12,14 @@ No browser focused means no bar. The overlay is click-through and never takes in
 
 *The bottom 60 px of a 3840×2160 monitor at scale 1.6, over a plain fullscreen window. The bar shows over fullscreen browsers too.*
 
-> **Status: working, in hardening.** It installs and runs as a systemd user service (Phase 07). See the [implementation plan](VPM_IMPLEMENTATION_PLAN.md).
+> **Status: v1.0.0.** Complete and running as a systemd user service on the reference machine (Omarchy, Hyprland 0.56, ProtonVPN WireGuard). Hardened and measured (see [Performance](#performance-measured-2026-11-19-reference-machine) and the [threat model](docs/VPM_THREAT_MODEL.md)). CI is configured but has not run on GitHub yet (account billing block); the same checks pass locally. See the [final report](docs/VPM_FINAL-REPORT.md).
 
 ## How it works
 Hyprland's event socket reports which window has focus (window **class** only, never the title). The kernel routing table tells which interface internet-bound traffic (IPv4 and IPv6) would leave through, and the kernel's own link type says whether that is a VPN tunnel (WireGuard or tun). That works for any VPN of those kinds (ProtonVPN, Mullvad, `wg-quick`, OpenVPN, a Tailscale exit node), with or without NetworkManager. Blue means every family either goes through a VPN or is blocked (kill switch, leak guard), and at least one goes through a VPN. Route changes are watched, so a VPN drop turns the bar red within a fraction of a second (measured: 0.23 s). A pure decision engine combines the two, and a GTK4 + `gtk4-layer-shell` overlay draws the bar. Anything unknown renders red: the indicator never says "safe" unless it is sure.
 
 ## Install
 ```
-git clone <this repository> && cd VPNMonitor
+git clone https://github.com/antonizick/VPNMonitor.git && cd VPNMonitor
 scripts/install.sh            # add --no-keybinding or --no-start to skip those steps
 ```
 `install.sh` is idempotent and changes only your home directory:
@@ -111,6 +111,7 @@ No window titles are read, logged or stored. No network calls are made. See [SEC
 - [Specification](docs/VPM_SPECIFICATION.md) (the Amendments section overrides earlier sections)
 - [Decisions (ADRs)](docs/VPM_DECISIONS.md)
 - [Threat model](docs/VPM_THREAT_MODEL.md)
+- [Final report](docs/VPM_FINAL-REPORT.md) (what was built, measured numbers, timeline)
 - [Implementation plan](VPM_IMPLEMENTATION_PLAN.md)
 - [Docs index](docs/README.md)
 - [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
