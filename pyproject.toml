@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vpn-monitor"
+version = "0.1.0"
+description = "Glowing bar on the focused browser's monitor: red when traffic is not routed through a VPN, blue when it is."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Nick Antonizick" }]
+# No runtime dependencies: PyGObject, GTK4 and gtk4-layer-shell come from pacman (ADR-0006).
+dependencies = []
+
+[project.scripts]
+vpn-monitor = "vpn_monitor.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vpn_monitor"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+# scripts/phase_timeline.py is copied verbatim from the phased-project skill; never edit it here.
+extend-exclude = ["scripts/phase_timeline.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "RUF", "PT"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["gi", "gi.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "gi: needs PyGObject (skipped when `gi` cannot be imported)",
+    "wayland: needs a live Wayland session (skipped in CI and without WAYLAND_DISPLAY)",
+]
+
+[tool.uv]
+# Use the system interpreter: PyGObject comes from pacman and only works there (ADR-0006).
+python-preference = "only-system"

@@ -34,7 +34,7 @@ Sessions may run with bypassed permissions. **If an action looks high-risk, irre
 
 ## Engineering rules
 - Stay within the phase's scope; record out-of-scope findings as follow-ups in the Phase Log.
-- Tests, lint and type checks must pass before a phase closes. `uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest` (Phase 02 confirms the exact commands; update this line if they change).
+- Tests, lint and type checks must pass before a phase closes. `uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest` (confirmed in Phase 02 2026-11-18; update this line if they change).
 - Never commit secrets, personal data, private recordings, model weights or `.env` files.
 - Follow the security and privacy baseline in the spec's Amendments (§2.3). In particular: never read, log or display window **titles** (S1), never contact external hosts (S2), and never show blue on an unknown reading (R4/S6).
 - Log every outcome with its reason, plus a record of inputs and outputs (human log + JSONL events, spec R11).

@@ -10,3 +10,8 @@ All notable changes to this project are documented here. The format follows [Kee
 - `.github/` issue templates, pull request template and Dependabot config for GitHub Actions.
 - Docs skeleton (`docs/README.md`, `docs/screenshots/`).
 - Pre-commit configuration with a `gitleaks` secret scan and basic hygiene hooks.
+- Python package `vpn_monitor` (`pyproject.toml`, hatchling, no runtime dependencies, `uv.lock`) with a `vpn-monitor` console script stub (`--version`; subcommands exit 2 "not implemented yet").
+- Shared types and the `FocusSource` / `VpnSource` / `IndicatorSink` Protocols in `model.py`; module stubs for every later phase; scripted fakes in `fakes.py`.
+- Tests for the types, CLI and fakes; `gi` and `wayland` pytest markers that skip automatically.
+- GitHub Actions CI (ruff, mypy, pytest on Python 3.12 and 3.14, actions pinned by commit SHA) and a Dependabot `uv` entry.
+- `docs/VPM_ARCHITECTURE.md`; ADR-0011 (callback-style Protocols) and ADR-0012 (GLib main-loop model); ADR-0006 accepted.

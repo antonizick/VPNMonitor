@@ -18,6 +18,9 @@ Hyprland's event socket reports which window has focus (window **class** only, n
 - System packages: `python-gobject`, `gtk4`, `gtk4-layer-shell` (`sudo pacman -S python-gobject gtk4 gtk4-layer-shell`)
 - `uv` for development only
 
+## Development
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup (`uv venv --system-site-packages && uv sync`) and the quality gates. Architecture: [docs/VPM_ARCHITECTURE.md](docs/VPM_ARCHITECTURE.md). Commands exist as stubs (exit status 2, "not implemented yet") until Phase 07.
+
 ## Planned commands
 ```
 vpn-monitor run         # start the daemon (normally run by a systemd user service)
