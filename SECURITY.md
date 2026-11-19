@@ -16,7 +16,7 @@ The full text is in `docs/VPM_SPECIFICATION.md` (Amendments §2.3).
 - **S1 No window titles.** Only the window class is read. Titles are never logged, stored or displayed. The logs (`~/.local/state/vpn-monitor/`, directory mode 0700) hold window classes, interface names and reasons only; an Omarchy web app's class includes its host name (for example `brave-basecamp.com__-Default`). Tests use a `TitleGuard` that fails if a title would reach either log.
 - **S2 No network calls.** Detection uses the local routing table (`ip route get` looks a route up without sending anything) and the kernel's link list; the detector has no socket code (a test checks its imports). No IP-check services, no external hosts, no telemetry.
 - **S3 Least privilege.** Runs as the user; no root, no sudo, no capabilities, no system-wide files.
-- **S4 Never steals input.** The overlay is click-through and takes no keyboard focus.
+- **S4 Never steals input.** The overlay is click-through and takes no keyboard focus: layer-shell keyboard mode NONE, an empty input region set on every map, no exclusive zone. If gtk4-layer-shell is not active the overlay refuses to start instead of opening an ordinary window, and toolkit errors are logged, never raised into the daemon (ADR-0017).
 - **S5 Control socket.** Owner-only (directory 0700, socket 0600, peer-credential check) with a fixed, small command set.
 - **S6 Honest indicator.** Unknown or stale readings render red. A false blue is a bug.
 - **S7 Secrets.** The project handles none. `.gitignore` and a pre-commit `gitleaks` scan guard against committing logs or local config.

@@ -98,7 +98,7 @@ def test_layer_surface_properties() -> None:
     assert out["monitor_name"] == out["monitor"]
     assert out["input_region_empty"] is True  # click-through (S4)
     assert out["visible"] is True
-    assert out["height"] == 15
+    assert out["height"] == 12  # 2 px core + 10 px glow
     assert out["settled"] is True
     assert out["draws"] > 0
     assert out["hidden_visible"] is False  # unmapped after the fade-out

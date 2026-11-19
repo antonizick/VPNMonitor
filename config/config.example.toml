@@ -54,11 +54,11 @@ red_confirm_ms = 0
 
 [appearance]
 # Fixed colours, independent of the Omarchy theme: "#RRGGBB" or "#RRGGBBAA".
-red = "#FF3B30"
-blue = "#0A84FF"
+red = "#FF3B30CC"
+blue = "#0A84FFCC"
 # Core line and glow height in logical pixels.
-thickness = 3
-glow = 12
+thickness = 2
+glow = 10
 # Fade on show, hide and colour change (milliseconds).
 fade_ms = 150
 

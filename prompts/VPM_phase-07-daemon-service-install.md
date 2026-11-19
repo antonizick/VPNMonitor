@@ -45,3 +45,10 @@ README (install, usage, uninstall, troubleshooting), SECURITY (control socket), 
 - Build the VPN source with `RouteWatcher(config, GLibScheduler(), log=log)` (`vpn_monitor.vpn`, `vpn_monitor.mainloop`); `start(cb)` with a callback that feeds `engine.on_vpn(reading)` and applies the result, `set_active(engine.active)` on every change of `active`, `stop()` at shutdown (terminates its `ip monitor` child). It logs `reading` and `vpn_watcher` events itself; the daemon only logs decisions.
 - `vpn-monitor probe` already exists in `cli.py` (exit 0/1/3, 2 = config error); keep it when filling in the other subcommands. `status` can show `watcher.last_reading`, `last_trigger`, `watcher_up`.
 - Probes run synchronously on the main loop (~12 ms, 1 s timeout per `ip` call, ADR-0007/0012).
+
+## Notes from Phase 06 (overlay; 2026-11-19 09:18 CST)
+- Call `vpn_monitor.overlay.ensure_layer_shell(argv)` at the top of `run`, **before anything imports Gtk** (it re-execs once with `LD_PRELOAD=libgtk4-layer-shell.so`; without it there is no layer surface). In the systemd unit you may instead set `Environment=LD_PRELOAD=/usr/lib/libgtk4-layer-shell.so`; the re-exec then does nothing.
+- Build the sink with `GlowOverlay(config.appearance, log=log)`; it raises `RuntimeError` if layer shell is unavailable (log it and exit non-zero; do not fall back to a normal window). `apply(decision)` is idempotent and never raises; `close()` on shutdown removes the bars.
+- `GtkBackend` sets `GSK_RENDERER=cairo` unless the environment sets it (ADR-0017); keep that in the unit.
+- On SIGHUP, appearance changes need a new `GlowOverlay` (close the old one first); the look is read once.
+- `vpn-monitor preview` already exists in `cli.py`; keep it.

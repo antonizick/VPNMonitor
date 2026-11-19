@@ -34,3 +34,8 @@ New fault-injection and threat-model tests; full suite green; coverage report re
 
 ## Notes from Phase 04
 - VPN-drop reaction measured in Phase 04 with `vpn-monitor probe --watch --log`: 228 ms (disconnect) and 222 ms (reconnect) from the first route event to the reading. For the end-to-end number, compare the `reading` event's `ts` with the `decision` event that follows it in `events.jsonl`.
+
+## Notes from Phase 06 (overlay; 2026-11-19 09:18 CST)
+- Overlay memory: RSS counts shared GTK libraries; report PSS (`/proc/<pid>/smaps_rollup`) next to RSS against R13's 80 MB. Phase 06 measured RSS 105 MB / PSS 58 MB with the cairo renderer (154 MB RSS with GTK's GPU renderer, which is why cairo is the default).
+- `vpn-monitor preview blue --seconds 600` prints the draw counter; idle redraws must stay 0. `strace` and `pidstat` are not installed on the reference machine; `/proc/<pid>/stat` ticks and `voluntary_ctxt_switches` work.
+- Fault injection: "overlay surface creation fails" is unit-tested (`overlay_error` logged, nothing raised); add the end-to-end daemon case.

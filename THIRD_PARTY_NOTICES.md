@@ -9,6 +9,7 @@ Licences below were read from the installed packages with `pacman -Qi` on 2026-1
 | GTK4 (`gtk4`) | 1:4.24.1-1 | LGPL-2.1-or-later | https://www.gtk.org/ | Overlay window toolkit |
 | gtk4-layer-shell (`gtk4-layer-shell`) | 1.3.0-1 | MIT | https://github.com/wmww/gtk4-layer-shell | Click-through layer-shell surface |
 | PyGObject (`python-gobject`) | 3.58.1-1 | LGPL-2.1-or-later | https://pygobject.gnome.org/ | Python bindings for GTK4 |
+| pycairo (`python-cairo`) | 1.29.2-1 | LGPL-2.1 OR MPL-1.1 | https://pycairo.readthedocs.io/ | Drawing the bar and the empty input region (added Phase 06) |
 
 ## Development-only tools
 Development tools (uv, pytest, ruff, mypy, pre-commit, gitleaks) are used on the developer's machine and in CI only. They are not distributed with the project. They are added here, with their licences, when Phase 02 pins them.

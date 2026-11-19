@@ -5,6 +5,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [Unreleased]
 
 ### Changed
+- Default look approved at the Phase 06 review (owner question 2): `appearance.thickness = 2`, `glow = 10`, `red = "#FF3B30CC"`, `blue = "#0A84FFCC"` (was 3 / 12 / `#FF3B30` / `#0A84FF`).
 - `vpn.leak_guard_interfaces` now defaults to ProtonVPN's kill-switch names `ipv6leakintrf*`, `pvpnksintrf*`, `pvpnrouteintrf*` (was `ipv6leakintrf0`).
 
 ### Added
@@ -31,3 +32,5 @@ All notable changes to this project are documented here. The format follows [Kee
 - `vpn-monitor focus [--watch] [--json] [--log]`: print the focused window's class, matched browser rule, monitor and the event-to-delivery latency (never titles).
 - Focus fixtures `tests/fixtures/focus/` (observed window classes, a synthetic socket2 stream with hostile titles); observed latency 2 to 7 ms.
 - Tests: matcher, config validation, engine truth table, staleness, hysteresis, monitors, exhaustive and randomised S6 invariant checks, event-log schema and rotation (510 tests, 100 % coverage of engine, matcher, config and event log).
+- Glow-bar overlay (`overlay.py`): click-through GTK4 layer-shell bar per monitor (layer OVERLAY, no exclusive zone, no keyboard, empty input region), 150 ms fades and red ↔ blue cross-fade on the frame clock with no idle redraws, device-pixel-snapped core line and gradient glow, monitor hot-plug handling, toolkit faults logged not raised; re-execs once with `LD_PRELOAD` for gtk4-layer-shell and uses the cairo renderer (ADR-0017, spec AM-2).
+- `vpn-monitor preview red|blue|cycle` (`--seconds`, `--monitor`, `--backdrop`, `--log`, `--config`) and `scripts/preview.sh` for screenshots; reviewed screenshots in `docs/screenshots/`.

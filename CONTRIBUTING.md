@@ -3,11 +3,11 @@
 Thanks for your interest. VPN Monitor is a small personal project built with a phased method; contributions are welcome within its security baseline (see `SECURITY.md`).
 
 ## Development setup
-Requirements: Omarchy/Hyprland (or any Hyprland setup), Python ≥ 3.12 on the system interpreter, `uv`, and the system packages `python-gobject gtk4 gtk4-layer-shell`.
+Requirements: Omarchy/Hyprland (or any Hyprland setup), Python ≥ 3.12 on the system interpreter, `uv`, and the system packages `python-gobject python-cairo gtk4 gtk4-layer-shell`.
 
 ```
 git clone <repo> && cd VPNMonitor
-sudo pacman -S --needed python-gobject gtk4 gtk4-layer-shell uv
+sudo pacman -S --needed python-gobject python-cairo gtk4 gtk4-layer-shell uv
 uv venv --system-site-packages     # the venv must see the system PyGObject (ADR-0006)
 uv sync                            # installs the pinned dev tools from uv.lock
 ```

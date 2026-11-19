@@ -83,12 +83,12 @@ class IndicatorConfig:
 
 @dataclass(frozen=True, slots=True)
 class AppearanceConfig:
-    """``[appearance]``: the bar's look (owner question 2, tuned in Phase 06)."""
+    """``[appearance]``: the bar's look (owner question 2; approved in Phase 06, ADR-0017)."""
 
-    red: str = "#FF3B30"
-    blue: str = "#0A84FF"
-    thickness: int = 3
-    glow: int = 12
+    red: str = "#FF3B30CC"
+    blue: str = "#0A84FFCC"
+    thickness: int = 2
+    glow: int = 10
     fade_ms: int = 150
 
 

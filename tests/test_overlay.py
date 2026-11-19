@@ -131,8 +131,10 @@ def test_parse_colour(text: str, expected: tuple[float, ...]) -> None:
 
 def test_parse_default_colours() -> None:
     look = Look.from_config(AppearanceConfig())
-    assert look.red == pytest.approx((1.0, 0x3B / 255, 0x30 / 255, 1.0))
-    assert look.blue == pytest.approx((0x0A / 255, 0x84 / 255, 1.0, 1.0))
+    # Approved at the Phase 06 review (ADR-0017): 80 % opacity.
+    assert look.red == pytest.approx((1.0, 0x3B / 255, 0x30 / 255, 0xCC / 255))
+    assert look.blue == pytest.approx((0x0A / 255, 0x84 / 255, 1.0, 0xCC / 255))
+    assert (look.thickness, look.glow, look.height) == (2, 10, 12)
 
 
 @pytest.mark.parametrize("bad", ["", "FF0000", "#FFF", "#GG0000", "#FF00000", "#ff 000", "red"])

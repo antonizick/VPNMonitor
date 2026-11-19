@@ -1,6 +1,6 @@
 # VPM: Architecture
 
-Status as of Phase 05 (2026-11-19 08:37 CST): types, fakes, the pure engine, browser matcher, config and event log are built; every module marked *stub* raises `NotImplementedError` until the phase named. Keep this file in sync as phases land.
+Status as of Phase 06 (2026-11-19 09:18 CST): types, fakes, the pure engine, browser matcher, config, event log, VPN detector, focus watcher and glow-bar overlay are built; every module marked *stub* raises `NotImplementedError` until the phase named. Keep this file in sync as phases land.
 
 ## Components
 
@@ -12,7 +12,7 @@ flowchart LR
         C[control.py<br/>Unix socket: pause/resume/status<br/>stub, Phase 07]
     end
     E[engine.py<br/>pure decision]
-    O[overlay.py<br/>GTK4 layer-shell glow bar<br/>stub, Phase 06]
+    O[overlay.py<br/>GTK4 layer-shell glow bar]
     L[eventlog.py<br/>human log + JSONL]
     D[daemon.py<br/>wiring on the GLib main loop<br/>stub, Phase 07]
     B[browsers.py<br/>class matcher]
@@ -136,6 +136,23 @@ Link kinds come from `ip -d -j link show` (`linkinfo.info_kind`), cached, droppe
 Readings are logged as `reading` events when their state or reason changes (inputs: `vpn_state`, `routes`, `trigger`, `latency_ms`); watcher failures as `vpn_watcher` errors. Measured on the reference machine (Phase 04): ProtonVPN disconnect → `NO_VPN` 228 ms after the first route event; reconnect → `VPN` 222 ms after it.
 
 `vpn-monitor probe [--json] [--watch [--log]] [--config PATH]` prints the reading (exit 0 VPN, 1 not through a VPN, 3 unknown, 2 config error); `--watch` runs the watcher on a GLib loop and prints every change with its trigger and reaction time.
+
+## Overlay (`overlay.py`, ADR-0017)
+`GlowOverlay(appearance, backend=None, log=None, clock=time.monotonic, on_settled=None)` is the `IndicatorSink`. Three layers:
+
+| Layer | What | Tested by |
+|---|---|---|
+| Pure helpers | `parse_colour`, `bar_height`, `snap_to_device` (core on whole device pixels), `glow_stops` (alpha `0.55 · (1 − t)^2.2`), `ease` (smoothstep), `Look` (resolved `[appearance]`), `Fade` (colour + opacity animator, time injected) | unit tests |
+| `Bar` | per-monitor state machine: HIDDEN → fading in → shown → cross-fading → fading out → unmapped. Drives a `BarSurface` (`map`, `unmap`, `queue_draw`, `start_ticks`, `destroy`); counts `draws` and `idle_draws` | fake surface + fake frame clock |
+| `Backend` / `GtkBackend` | creates `GtkSurface`s (one `Gtk.Window` + `Gtk.DrawingArea` per monitor) and reports monitors from `Gdk.Display.get_monitors()` `items-changed` | `wayland`-marked subprocess test |
+
+Surface: layer `OVERLAY`, anchors bottom/left/right, exclusive zone 0, keyboard mode NONE, namespace `vpn-monitor`, empty input region (set on every `map`), height `thickness + glow` logical px. Only the monitor a Decision names gets a window (created on first use); other bars fade out and unmap. `apply` is idempotent. Monitor removed: its bar is destroyed; the Decision's monitor coming back gets its bar again. Any toolkit exception is logged as `overlay_error` and swallowed (S4).
+
+Animation: `fade_ms` smoothstep; the frame-clock tick callback exists only while a fade runs, so a settled bar does nothing (R13). The fade's clock starts at the first frame after a map (the first map is slow). Events: `overlay` (indicator change, info), `overlay_settled` (debug, with the draw count), `overlay_monitor`, `overlay_monitor_missing`, `overlay_error`.
+
+Process setup: `ensure_layer_shell(argv)` re-execs once with `LD_PRELOAD=libgtk4-layer-shell.so` (guard `VPN_MONITOR_PRELOADED`) and must run before Gtk is imported; `GtkBackend` sets `GSK_RENDERER=cairo` unless already set and raises `RuntimeError` if layer shell is unavailable. `vpn-monitor preview red|blue|cycle [--seconds N] [--monitor M] [--backdrop] [--log] [--config]` drives the overlay directly; `scripts/preview.sh [MONITOR]` takes the review screenshots.
+
+Measured on the reference machine (bar shown, after the fade): 0 idle redraws, 0 CPU ticks over 20 s, RSS 105 MB / PSS 58 MB, 6 threads; about 10 draws per fade at 60 Hz.
 
 ## Logging (`eventlog.py`, ADR-0014)
 Every decision change and every error goes to both logs with its inputs and reason (spec R11). `EventLog(state_dir=None, max_bytes=1_000_000, backup_count=3, guard=None)` writes to `$XDG_STATE_HOME/vpn-monitor/` (default `~/.local/state/vpn-monitor/`, directory 0700): `vpn-monitor.log` (human) and `events.jsonl`, each size-rotated. Methods: `decision(Decision)`, `record(event, reason=…, decision=None, inputs=None, level=INFO)`, `error(event, reason, inputs)`, `close()`.

@@ -7,6 +7,11 @@ A tiny always-on desktop add-on for [Omarchy](https://omarchy.org)/Hyprland. Whi
 
 No browser focused means no bar. The overlay is click-through and never takes input.
 
+![Red bar: not on a VPN](docs/screenshots/vpm-bar-red.png)
+![Blue bar: on a VPN](docs/screenshots/vpm-bar-blue.png)
+
+*The bottom 60 px of a 3840×2160 monitor at scale 1.6, over a plain fullscreen window. The bar shows over fullscreen browsers too.*
+
 > **Status: in development.** Nothing is installable yet. See the [implementation plan](VPM_IMPLEMENTATION_PLAN.md).
 
 ## How it works
@@ -15,11 +20,11 @@ Hyprland's event socket reports which window has focus (window **class** only, n
 ## Requirements
 - Omarchy / Hyprland
 - Python ≥ 3.12 on the system interpreter
-- System packages: `python-gobject`, `gtk4`, `gtk4-layer-shell` (`sudo pacman -S python-gobject gtk4 gtk4-layer-shell`)
+- System packages: `python-gobject`, `python-cairo`, `gtk4`, `gtk4-layer-shell` (`sudo pacman -S python-gobject python-cairo gtk4 gtk4-layer-shell`)
 - `uv` for development only
 
 ## Development
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup (`uv venv --system-site-packages && uv sync`) and the quality gates. Architecture: [docs/VPM_ARCHITECTURE.md](docs/VPM_ARCHITECTURE.md). Daemon commands exist as stubs (exit status 2, "not implemented yet") until Phase 07. `vpn-monitor probe` works now: it checks the routes once and explains the verdict (`--json`, or `--watch` to follow changes live). So does `vpn-monitor focus`: it prints the focused window's class, whether it counts as a browser (and by which rule) and its monitor, never the title (`--watch` follows focus changes live). To make another app count as a browser, run `vpn-monitor focus` while it is focused to read its class, then add that class to `browsers.classes` (exact) or a regex to `browsers.patterns` in the config.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup (`uv venv --system-site-packages && uv sync`) and the quality gates. Architecture: [docs/VPM_ARCHITECTURE.md](docs/VPM_ARCHITECTURE.md). Daemon commands exist as stubs (exit status 2, "not implemented yet") until Phase 07. `vpn-monitor probe` works now: it checks the routes once and explains the verdict (`--json`, or `--watch` to follow changes live). So does `vpn-monitor focus`: it prints the focused window's class, whether it counts as a browser (and by which rule) and its monitor, never the title (`--watch` follows focus changes live). `vpn-monitor preview red|blue|cycle` draws the bar directly (no VPN or focus logic) so you can judge the look: `--seconds N` stops after N seconds, `--monitor DP-1` picks the monitor, `--backdrop` adds a plain fullscreen window underneath (it takes keyboard focus while open), and the draw counter it prints should stay put once a fade ends. `scripts/preview.sh [MONITOR]` saves the screenshots in `docs/screenshots/`. To make another app count as a browser, run `vpn-monitor focus` while it is focused to read its class, then add that class to `browsers.classes` (exact) or a regex to `browsers.patterns` in the config.
 
 ## Planned commands
 ```
@@ -43,7 +48,8 @@ Optional: `~/.config/vpn-monitor/config.toml` (or `$XDG_CONFIG_HOME/vpn-monitor/
 | `vpn.recheck_interval_s` / `vpn.max_reading_age_s` | `5.0` / `10.0` | re-check while a browser is focused; older readings show red |
 | `indicator.show_on_fullscreen` | `true` | show the bar over fullscreen browsers |
 | `indicator.blue_confirm_ms` | `0` | a VPN reading must hold this long before blue (red is never delayed) |
-| `appearance.red` / `appearance.blue` / `thickness` / `glow` | `#FF3B30` / `#0A84FF` / `3` / `12` | the bar's look |
+| `appearance.red` / `appearance.blue` / `thickness` / `glow` | `#FF3B30CC` / `#0A84FFCC` / `2` / `10` | the bar's look: colours (`#RRGGBBAA` alpha allowed), core line and glow height in logical px |
+| `appearance.fade_ms` | `150` | fade on show, hide and red ↔ blue |
 | `pause.auto_resume_minutes` | `0` | 0 = paused until resumed or the next login |
 
 Unknown keys are ignored with a warning in the log; an invalid value stops the daemon with an error naming the key. Logs live in `~/.local/state/vpn-monitor/` (`vpn-monitor.log` and `events.jsonl`, rotated by size).
