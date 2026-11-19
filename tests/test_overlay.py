@@ -5,8 +5,11 @@ from __future__ import annotations
 import ast
 import itertools
 import json
+import sys
+import types
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -94,6 +97,32 @@ class _NullCairo:
 
     def __getattr__(self, _name: str) -> Callable[..., None]:
         return lambda *_a, **_k: None
+
+
+@pytest.fixture(autouse=True)
+def _stub_cairo_if_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    """pycairo is a system package (like PyGObject) and absent on CI runners.
+
+    paint() imports it for two operator constants and the gradient class; the logic tests feed it
+    a null context, so a stand-in module is enough. The tests against a real image surface use
+    ``importorskip`` and skip without the real module.
+    """
+    try:
+        import cairo  # noqa: F401
+    except ImportError:
+        stub = types.ModuleType("cairo")
+        stub.OPERATOR_SOURCE = 1  # type: ignore[attr-defined]
+        stub.OPERATOR_OVER = 2  # type: ignore[attr-defined]
+        stub.LinearGradient = lambda *_a: _NullCairo()  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "cairo", stub)
+
+
+def _real_cairo() -> Any:
+    """The real pycairo, or skip (the stand-in from the autouse fixture has no ImageSurface)."""
+    cairo = pytest.importorskip("cairo")
+    if not hasattr(cairo, "ImageSurface"):
+        pytest.skip("pycairo is not installed")
+    return cairo
 
 
 def run_frames(surface: FakeSurface, clock: FakeClock, n: int, dt: float = 1 / 60) -> None:
@@ -390,7 +419,7 @@ def test_bar_settled_callback_and_detached_bar() -> None:
 
 
 def test_paint_draws_core_and_glow() -> None:
-    cairo = pytest.importorskip("cairo")
+    cairo = _real_cairo()
     look = Look.from_config(AppearanceConfig(red="#FF0000", thickness=3, glow=12))
     image = cairo.ImageSurface(cairo.FORMAT_ARGB32, 10, 15)
     cr = cairo.Context(image)
@@ -412,7 +441,7 @@ def test_paint_draws_core_and_glow() -> None:
 
 
 def test_paint_hidden_frame_is_transparent() -> None:
-    cairo = pytest.importorskip("cairo")
+    cairo = _real_cairo()
     look = Look.from_config(AppearanceConfig())
     image = cairo.ImageSurface(cairo.FORMAT_ARGB32, 4, 15)
     cr = cairo.Context(image)

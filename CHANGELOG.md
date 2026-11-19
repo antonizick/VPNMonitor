@@ -5,7 +5,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [Unreleased]
 
 ### Fixed
-- CI: `mypy` failed on the GitHub runner (`Cannot find implementation or library stub for module named "cairo"`) because pycairo is a system package like PyGObject; `cairo` joins `gi` in the mypy `ignore_missing_imports` overrides. Found when CI first ran after the billing fix (2026-11-19 13:28 CST).
+- CI: `mypy` failed on the GitHub runner (`Cannot find implementation or library stub for module named "cairo"`) because pycairo is a system package like PyGObject; `cairo` joins `gi` in the mypy `ignore_missing_imports` overrides, and the overlay tests use a stand-in `cairo` module when pycairo is absent (14 tests failed on the runner; the two real-surface tests skip). Found when CI first ran after the billing fix (2026-11-19 13:28 CST).
 
 ## [1.0.0] - 2026-11-19 13:15 CST
 
