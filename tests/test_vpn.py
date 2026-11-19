@@ -392,3 +392,20 @@ def test_no_network_imports(module: str) -> None:
         elif isinstance(node, ast.ImportFrom) and node.module:
             imported.add(node.module.split(".")[0])
     assert not imported & {"socket", "ssl", "http", "urllib", "requests", "asyncio", "selectors"}
+
+
+@pytest.mark.parametrize(
+    ("preload", "expected"),
+    [
+        ("/usr/lib/libgtk4-layer-shell.so", None),
+        ("/usr/lib/libgtk4-layer-shell.so /opt/lib/libother.so", "/opt/lib/libother.so"),
+        ("/opt/lib/libother.so", "/opt/lib/libother.so"),
+        ("", None),
+    ],
+)
+def test_child_env_drops_only_the_layer_shell_preload(preload: str, expected: str | None) -> None:
+    env = vpn._c_env({"LD_PRELOAD": preload, "HOME": "/h"} if preload else {"HOME": "/h"})
+    assert env.get("LD_PRELOAD") == expected
+    assert env["HOME"] == "/h"
+    assert env["LC_ALL"] == "C"
+    assert env["LANG"] == "C"
