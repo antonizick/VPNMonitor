@@ -1,0 +1,7 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  # The pip/uv ecosystem entry is added in Phase 02, when pyproject.toml exists.

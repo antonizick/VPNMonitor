@@ -1,0 +1,48 @@
+# VPN Monitor
+
+A tiny always-on desktop add-on for [Omarchy](https://omarchy.org)/Hyprland. While a web browser (or an Omarchy web app) has focus, a thin glowing bar is drawn along the bottom edge of that monitor:
+
+- 🔴 **red**: internet traffic is **not** routed through a VPN
+- 🔵 **blue**: internet traffic **is** routed through a VPN
+
+No browser focused means no bar. The overlay is click-through and never takes input.
+
+> **Status: in development.** Nothing is installable yet. See the [implementation plan](VPM_IMPLEMENTATION_PLAN.md).
+
+## How it works
+Hyprland's event socket reports which window has focus (window **class** only, never the title). The Linux routing table and NetworkManager tell whether internet-bound routes (IPv4 and IPv6) leave through a VPN interface. A pure decision engine combines the two, and a GTK4 + `gtk4-layer-shell` overlay draws the bar. Anything unknown renders red: the indicator never says "safe" unless it is sure.
+
+## Requirements
+- Omarchy / Hyprland
+- Python ≥ 3.12 on the system interpreter
+- System packages: `python-gobject`, `gtk4`, `gtk4-layer-shell` (`sudo pacman -S python-gobject gtk4 gtk4-layer-shell`)
+- `uv` for development only
+
+## Planned commands
+```
+vpn-monitor run         # start the daemon (normally run by a systemd user service)
+vpn-monitor pause       # hide the bar
+vpn-monitor resume      # show it again
+vpn-monitor toggle      # pause or resume
+vpn-monitor status      # current state (add --json for machine-readable output)
+vpn-monitor log         # show recent events
+```
+
+## Honest limits
+- **Route-based.** "VPN" means internet routes leave through a VPN interface. It does not prove your VPN provider is trustworthy.
+- **DNS leaks are not detected.** The route test cannot see whether DNS queries bypass the tunnel. This is deferred (owner question 5); it may be added later.
+- A Tailscale mesh connection alone counts as **not** a VPN (red), unless it is used as an exit node routing internet traffic.
+- Only browsers on the configurable class list are tracked.
+
+## Privacy and security
+No window titles are read, logged or stored. No network calls are made. See [SECURITY.md](SECURITY.md).
+
+## Documentation
+- [Specification](docs/VPM_SPECIFICATION.md) (the Amendments section overrides earlier sections)
+- [Decisions (ADRs)](docs/VPM_DECISIONS.md)
+- [Implementation plan](VPM_IMPLEMENTATION_PLAN.md)
+- [Docs index](docs/README.md)
+- [Contributing](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+## Licence
+MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

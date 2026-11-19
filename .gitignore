@@ -1,2 +1,42 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.uv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local runtime data (never commit: logs may describe the user's activity)
+*.log
+events.jsonl
+config.toml
+!config/config.example.toml
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Worktrees and scratch
+*.orig
+*.rej
+
+# Screenshots stay out of the repo unless reviewed and placed in docs/screenshots/
+*.png
+*.jpg
+*.jpeg
+!docs/screenshots/
+!docs/screenshots/**

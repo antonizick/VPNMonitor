@@ -116,4 +116,3 @@ The plan's `## Timeline` block, `docs/VPM_TIMELINE.svg`, the vault note's timeli
 - When: after the merge at close-out, after the `⛔` commit (§1b) and after the resume commit. The claim commit stays status-only, but refresh in its own `docs(plan): refresh timeline` commit right after it so the running phase shows at once. Under `phx` the supervisor also does this itself while a phase runs, so a miss here is repaired.
 - If the block or the SVG ever conflicts, take either side and re-run `--write`; never merge it by hand.
 - `python3 scripts/phase_timeline.py --check` exits 1 when the outputs are stale (right after a claim this is expected).
-

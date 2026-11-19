@@ -1,0 +1,29 @@
+# This project ships no container image. This file exists so that, if one is
+# ever added, build contexts never include local data. It mirrors .gitignore.
+.git/
+.github/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.uv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.log
+events.jsonl
+config.toml
+.env
+.env.*
+.idea/
+.vscode/
+*.swp
+.DS_Store
+*.png
+*.jpg
+*.jpeg
