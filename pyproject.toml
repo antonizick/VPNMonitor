@@ -21,7 +21,7 @@ vpn-monitor = "vpn_monitor.cli:main"
 dev = [
     "pytest>=8.3",
     "pytest-cov>=6.0",
-    "ruff>=0.8",
+    "ruff>=0.17.6",
     "mypy>=1.13",
 ]
 
